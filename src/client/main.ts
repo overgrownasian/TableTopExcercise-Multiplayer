@@ -24,7 +24,7 @@ const state: {
   roomCode: string;
   playerName: string;
   error: string;
-  hostInfo: { port: number; addresses: string[] } | null;
+  hostInfo: { port: number; addresses: string[]; joinBaseUrl?: string } | null;
   facilitatorSelectedPlayerId: string;
   facilitatorModalMode: "" | "deck" | "inject";
   facilitatorFinalModalDismissed: boolean;
@@ -323,9 +323,12 @@ function escapeHtml(text: string) {
 
 function roomJoinLinks() {
   if (!state.hostInfo || !state.roomCode) return `<div class="muted">Room link will appear once the server reports a reachable address.</div>`;
-  const links = state.hostInfo.addresses.length
-    ? state.hostInfo.addresses.map((address) => `http://${address}:${state.hostInfo?.port}/player?room=${state.roomCode}`)
-    : [`${window.location.origin}/player?room=${state.roomCode}`];
+  const baseUrl = state.hostInfo.joinBaseUrl?.trim();
+  const links = baseUrl
+    ? [`${baseUrl}/player?room=${state.roomCode}`]
+    : state.hostInfo.addresses.length
+      ? state.hostInfo.addresses.map((address) => `http://${address}:${state.hostInfo?.port}/player?room=${state.roomCode}`)
+      : [`${window.location.origin}/player?room=${state.roomCode}`];
 
   return `
     <div class="stack">

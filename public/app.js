@@ -544,7 +544,8 @@ function escapeHtml(text) {
 }
 function roomJoinLinks() {
   if (!state.hostInfo || !state.roomCode) return `<div class="muted">Room link will appear once the server reports a reachable address.</div>`;
-  const links = state.hostInfo.addresses.length ? state.hostInfo.addresses.map((address) => `http://${address}:${state.hostInfo?.port}/player?room=${state.roomCode}`) : [`${window.location.origin}/player?room=${state.roomCode}`];
+  const baseUrl = state.hostInfo.joinBaseUrl?.trim();
+  const links = baseUrl ? [`${baseUrl}/player?room=${state.roomCode}`] : state.hostInfo.addresses.length ? state.hostInfo.addresses.map((address) => `http://${address}:${state.hostInfo?.port}/player?room=${state.roomCode}`) : [`${window.location.origin}/player?room=${state.roomCode}`];
   return `
     <div class="stack">
       ${links.map((link) => `<div><div class="eyebrow">Join URL</div><div>${escapeHtml(link)}</div></div>`).join("")}

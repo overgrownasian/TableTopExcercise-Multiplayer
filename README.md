@@ -107,12 +107,23 @@ The server supports these environment variables:
 
 ```env
 PORT=4310
+JOIN_BASE_URL=https://your-domain.example.com
 ADMIN_PASSWORD_HASH=scrypt$<saltBase64>$<hashBase64>
 ```
 
 ### `PORT`
 
 Sets the web server port.
+
+### `JOIN_BASE_URL`
+
+Optional public base URL used for facilitator join links. This is especially useful in Docker or reverse-proxy deployments where the container only knows its internal IP address.
+
+Example:
+
+```env
+JOIN_BASE_URL=https://tabletop.yourdomain.com
+```
 
 ### `ADMIN_PASSWORD_HASH`
 
@@ -146,6 +157,7 @@ Then place the result in your `.env` file:
 ```env
 ADMIN_PASSWORD_HASH=scrypt$...
 PORT=4310
+JOIN_BASE_URL=https://your-domain.example.com
 ```
 
 ## Running the App
@@ -230,6 +242,7 @@ Run the container:
 ```bash
 docker run --rm -p 4310:4310 \
   -e PORT=4310 \
+  -e JOIN_BASE_URL="https://tabletop.yourdomain.com" \
   -e ADMIN_PASSWORD_HASH="scrypt$..." \
   -v "$(pwd)/data:/app/data" \
   incident-response-tabletop
@@ -239,6 +252,7 @@ Notes:
 
 - mount `/app/data` so your inject library persists
 - do not bake secrets into the image
+- set `JOIN_BASE_URL` so facilitator join links point to your real public domain
 - pass `ADMIN_PASSWORD_HASH` at runtime
 
 ## Deployment Notes

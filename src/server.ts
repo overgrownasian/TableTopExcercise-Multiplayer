@@ -37,6 +37,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 const port = Number(process.env.PORT ?? 3000);
+const joinBaseUrl = process.env.JOIN_BASE_URL?.trim().replace(/\/+$/, "") ?? "";
 const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH?.trim() ?? "";
 const adminSessionCookieName = "irtt_admin_session";
 const adminSessionTtlMs = 1000 * 60 * 60 * 12;
@@ -148,7 +149,7 @@ app.get("/api/info", (_req, res) => {
     .filter((entry): entry is os.NetworkInterfaceInfo => Boolean(entry && entry.family === "IPv4" && !entry.internal))
     .map((entry) => entry.address);
 
-  res.json({ port, addresses });
+  res.json({ port, addresses, joinBaseUrl });
 });
 
 app.get("/api/admin/session", (req, res) => {

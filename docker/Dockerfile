@@ -18,6 +18,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=4310
+ENV JOIN_BASE_URL=
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev

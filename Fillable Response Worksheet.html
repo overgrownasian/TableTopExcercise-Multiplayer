@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Incident Response Tabletop Report</title>
+
+<style>
+:root{
+  --border:#9ca3af;
+  --panel:#ffffff;
+  --text:#111827;
+  --accent:#1d4ed8;
+  --warn:#92400e;
+}
+
+*{box-sizing:border-box}
+
+/* SCREEN */
+body{
+  margin:0;
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:#e5e7eb;
+  font-family:Arial, Helvetica, sans-serif;
+}
+
+/* PAGE */
+.page{
+  width:11in;
+  height:8.5in;
+  background:var(--panel);
+  border:2px solid var(--border);
+  padding:18px 20px;
+  display:flex;
+  flex-direction:column;
+}
+
+/* HEADER */
+h1{
+  margin:0 0 12px;
+  text-align:center;
+  font-size:22px;
+  color:var(--accent);
+}
+
+/* MAIN */
+.main{
+  flex:1;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px;
+}
+
+/* COLUMNS */
+.left,
+.right{
+  display:flex;
+  flex-direction:column;
+}
+
+.right{
+  border-left:2px solid var(--border);
+  padding-left:18px;
+}
+
+/* SECTIONS */
+.section{
+  margin-bottom:14px;
+}
+
+.section h2{
+  margin:0 0 6px;
+  padding-bottom:3px;
+  font-size:14px;
+  color:var(--warn);
+  border-bottom:1px solid var(--border);
+}
+
+/* INPUTS */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:8px;
+}
+
+label{
+  font-size:11px;
+  font-weight:bold;
+}
+
+input[type="text"],
+textarea{
+  width:100%;
+  padding:6px;
+  font-size:11px;
+  border:1px solid var(--border);
+  border-radius:4px;
+  background:#f9fafb;
+}
+
+/* TEXTAREAS — EXPANDED */
+textarea{
+  resize:none;
+}
+
+.description{
+  flex:1;
+  min-height:200px;
+}
+
+.corrective-notes{
+  flex:1;
+  min-height:220px;
+}
+
+/* CHECKBOXES */
+.check-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:7px;
+}
+
+.check{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 6px;
+  font-size:11px;
+  border:1px solid var(--border);
+  border-radius:4px;
+  background:#f3f4f6;
+}
+
+.check input{
+  width:13px;
+  height:13px;
+}
+
+/* SIGNATURES */
+.signatures{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px;
+  margin-top:auto; /* forces bottom alignment */
+}
+
+.sig{
+  font-size:11px;
+  padding-top:6px;
+  border-top:1px solid var(--border);
+}
+
+/* PRINT */
+@media print{
+  body{
+    background:white;
+    display:block;
+  }
+
+  @page{
+    size:letter landscape;
+    margin:0.4in;
+  }
+}
+</style>
+</head>
+
+<body>
+<div class="page">
+
+<h1>Tabletop Incident Response Report</h1>
+
+<div class="main">
+
+<!-- LEFT COLUMN -->
+<div class="left">
+
+  <div class="section">
+    <h2>Incident Overview</h2>
+    <div class="grid">
+      <div><label>Incident ID</label><input type="text"></div>
+      <div><label>Date / Time</label><input type="text"></div>
+      <div><label>Reported By</label><input type="text"></div>
+      <div><label>Department</label><input type="text"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Incident Type</h2>
+    <div class="check-grid">
+      <div class="check"><input type="checkbox"> Phishing</div>
+      <div class="check"><input type="checkbox"> Malware</div>
+      <div class="check"><input type="checkbox"> Data Breach</div>
+      <div class="check"><input type="checkbox"> Unauthorized Access</div>
+      <div class="check"><input type="checkbox"> DoS / DDoS</div>
+      <div class="check"><input type="checkbox"> Insider Threat</div>
+      <div class="check"><input type="checkbox"> Lost Device</div>
+      <div class="check"><input type="checkbox"> Other ie; Environmental, Incidental</div>
+    </div>
+  </div>
+
+  <div class="section" style="flex:1">
+    <h2>Incident Description</h2>
+    <textarea class="description"></textarea>
+  </div>
+
+  <div class="section">
+    <h2>Affected Areas/Assets</h2>
+    <div class="check-grid">
+      <div class="check"><input type="checkbox"> Users</div>
+      <div class="check"><input type="checkbox"> Workstations</div>
+      <div class="check"><input type="checkbox"> Servers</div>
+      <div class="check"><input type="checkbox"> Network</div>
+      <div class="check"><input type="checkbox"> Cloud/Email</div>
+      <div class="check"><input type="checkbox"> Buildings/Vehicles</div>
+      <div class="check"><input type="checkbox"> Public Data</div>
+      <div class="check"><input type="checkbox"> Employee Data</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- RIGHT COLUMN -->
+<div class="right">
+
+  <div class="section">
+    <h2>Notifications</h2>
+    <strong style="font-size:11px">Internal</strong>
+    <div class="check-grid">
+      <div class="check"><input type="checkbox"> IT / Security</div>
+      <div class="check"><input type="checkbox"> IR Team</div>
+      <div class="check"><input type="checkbox"> Executives</div>
+      <div class="check"><input type="checkbox"> Legal</div>
+      <div class="check"><input type="checkbox"> HR</div>
+      <div class="check"><input type="checkbox"> Communications</div>
+    </div>
+
+    <strong style="font-size:11px;display:block;margin-top:6px">External</strong>
+    <div class="check-grid">
+      <div class="check"><input type="checkbox"> Cyber Insurance</div>
+      <div class="check"><input type="checkbox"> Law Enforcement</div>
+      <div class="check"><input type="checkbox"> Regulator</div>
+      <div class="check"><input type="checkbox"> Customers</div>
+      <div class="check"><input type="checkbox"> Vendor / MSP</div>
+    </div>
+  </div>
+
+  <div class="section" style="flex:1">
+    <h2>Corrective Actions</h2>
+    <div class="check-grid">
+      <div class="check"><input type="checkbox"> Accounts Disabled</div>
+      <div class="check"><input type="checkbox"> Systems Isolated</div>
+      <div class="check"><input type="checkbox"> Malware Removed</div>
+      <div class="check"><input type="checkbox"> Patches Applied</div>
+      <div class="check"><input type="checkbox"> Backups Restored</div>
+      <div class="check"><input type="checkbox"> MFA Enforced</div>
+      <div class="check"><input type="checkbox"> Firewall Updated</div>
+      <div class="check"><input type="checkbox"> User Training</div>
+    </div>
+    <textarea class="corrective-notes"></textarea>
+  </div>
+
+  <div class="signatures">
+    <div class="sig">
+      <strong>Incident Closed By</strong><br>
+      Signature: _______________________<br>
+      Date: ____________________________
+    </div>
+    <div class="sig">
+      <strong>Management Approval</strong><br>
+      Signature: _______________________<br>
+      Date: ____________________________
+    </div>
+  </div>
+
+</div>
+
+</div>
+</div>
+</body>
+</html>

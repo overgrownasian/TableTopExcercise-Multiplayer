@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emergency Response Exercise</title>
+<style>
+:root {
+  /* DYNAMIC VARIABLES */
+  --base-size: 16px; 
+  --sidebar-width: 280px; 
+  --card-zoom: 1;
+  
+  /* THEME */
+  --primary-bg: #1a202c;
+  --panel-bg: #2d3748;
+  --accent: #f6ad55; /* School Bus Orange */
+  --accent-glow: rgba(246, 173, 85, 0.3);
+  --text-main: #edf2f7;
+  --text-muted: #a0aec0;
+  --danger: #fc8181;
+  --success: #68d391;
+  --card-bg: linear-gradient(145deg, #2d3748, #232b3b);
+}
+
+html { font-size: var(--base-size); }
+
+body { 
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+    background: var(--primary-bg); 
+    color: var(--text-main); 
+    margin: 0; padding: 0; 
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* --- FLEXBOX LAYOUT ENGINE --- */
+.layout-container {
+    display: flex;
+    flex-wrap: wrap; 
+    justify-content: center;
+    align-items: flex-start;
+    gap: 1.5rem; 
+    width: 98%; 
+    max-width: 1800px; 
+    margin: 1.5rem auto;
+    padding-bottom: 2rem;
+}
+
+/* SIDEBARS */
+.sidebar-panel {
+    background: var(--panel-bg);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    flex: 1 0 var(--sidebar-width);
+    min-width: 260px; 
+    max-width: 400px; 
+    height: fit-content;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+/* CENTER GAME AREA */
+.game-area {
+    flex: 10 1 500px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 1.5rem;
+    min-width: 320px; 
+}
+
+/* The Game Card */
+.card { 
+    width: 100%; 
+    background: var(--card-bg); 
+    border-radius: 1.5rem; padding: 3rem; 
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5); 
+    display: flex; flex-direction: column; 
+    justify-content: center; align-items: center; 
+    text-align: center; position: relative;
+    border: 2px solid rgba(255,255,255,0.05);
+    transition: border 0.3s;
+    box-sizing: border-box;
+}
+
+/* Typography & Components */
+h1, h2, h3 { margin: 0 0 1rem 0; color: var(--accent); }
+h3 { font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; margin-bottom: 1rem;}
+
+.category-btn { 
+    padding: 0.6rem; font-size: 0.85rem; 
+    background: rgba(255,255,255,0.05); 
+    border: 1px solid transparent; border-radius: 0.4rem; 
+    cursor: pointer; color: var(--text-muted);
+    transition: all 0.2s; text-align: left; margin-bottom: 0.4rem;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.category-btn:hover { background: rgba(255,255,255,0.1); }
+.category-btn.active { 
+    background: var(--accent); color: #1a202c; font-weight: bold;
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.setting-row { margin-bottom: 1rem; }
+.setting-label { display: flex; justify-content: space-between; font-size: 0.85rem; color: #a0aec0; margin-bottom: 0.4rem; }
+.setting-input { width: 100%; padding: 0.5rem; border-radius: 0.3rem; border: 1px solid #4a5568; background: #1a202c; color: white; box-sizing: border-box; }
+.checkbox-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: var(--text-muted); cursor: pointer; }
+
+/* Dashboard Bars */
+.dept-health-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; font-size: 0.85rem; }
+.health-bar-bg { width: 80px; height: 10px; background: #1a202c; border-radius: 5px; overflow: hidden; margin-left: 10px; }
+.health-bar-fill { height: 100%; background: var(--success); width: 100%; transition: width 0.5s ease; }
+.total-score { font-size: 2.2rem; font-weight: bold; text-align: center; color: var(--text-main); margin-bottom: 1rem; }
+
+/* Alarm & Timer */
+@keyframes alarm-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(252, 129, 129, 0.7); border-color: var(--danger); }
+    70% { box-shadow: 0 0 0 20px rgba(252, 129, 129, 0); border-color: var(--danger); }
+    100% { box-shadow: 0 0 0 0 rgba(252, 129, 129, 0); border-color: var(--danger); }
+}
+.card.alarm-active { animation: alarm-pulse 1.5s infinite; }
+
+.times-up-overlay {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%) rotate(-10deg);
+    font-size: 4rem; font-weight: 900; color: var(--danger);
+    border: 5px solid var(--danger); padding: 1rem 2rem;
+    background: rgba(0,0,0,0.9); pointer-events: none;
+    display: none; z-index: 100; text-transform: uppercase;
+    box-shadow: 0 0 50px var(--danger); text-align: center;
+}
+
+.scenario-text { 
+    font-size: calc(1.6rem * var(--card-zoom)); 
+    line-height: 1.4; font-weight: 500; margin-bottom: 2rem; 
+    transition: font-size 0.2s;
+}
+
+.timer-container {
+    background: #1a202c; padding: 0.5rem 1rem; border-radius: 0.5rem;
+    border: 1px solid var(--danger); color: var(--danger);
+    font-family: monospace; font-size: 1.5rem; font-weight: bold;
+    margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem;
+}
+.timer-btn { background: none; border: 1px solid var(--danger); color: var(--danger); padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer; border-radius: 4px; }
+.timer-btn:hover { background: var(--danger); color: #1a202c; }
+
+/* Controls */
+.game-controls { 
+    width: 100%; 
+    display: grid; 
+    gap: 2rem; /* Big gap between Primary and Collateral */
+    margin-top: 2rem; 
+    border-top: 1px solid rgba(255,255,255,0.1); 
+    padding-top: 1.5rem; 
+}
+.scoring-section { text-align: left; }
+
+.slider-row { display: flex; align-items: center; gap: 1rem; margin-top: 0.5rem;}
+input[type=range] { flex-grow: 1; accent-color: var(--accent); cursor: pointer; }
+.score-value { font-weight: bold; color: var(--accent); font-size: 1.2rem; min-width: 30px; text-align: right; }
+
+.collateral-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+.collateral-btn {
+    font-size: 0.75rem; padding: 0.4rem 0.8rem;
+    background: #1a202c; border: 1px solid #4a5568; color: var(--text-muted);
+    border-radius: 1rem; cursor: pointer; user-select: none; flex-grow: 1; text-align: center;
+}
+.collateral-btn.selected { background: var(--danger); color: #1a202c; border-color: var(--danger); font-weight: bold; }
+
+.btn-group { 
+    display: flex; 
+    gap: 1rem; 
+    justify-content: center; 
+    margin-top: 3rem; /* Huge space before buttons */
+    padding-bottom: 1rem;
+}
+
+.btn-primary { 
+    background: var(--accent); color: #1a202c; border: none; padding: 1rem 3rem; 
+    border-radius: 3rem; font-size: 1.2rem; font-weight: bold; cursor: pointer; transition: transform 0.1s;
+}
+.btn-primary:active { transform: scale(0.98); }
+.btn-secondary {
+    background: transparent; color: var(--text-muted); border: 2px solid var(--text-muted); 
+    padding: 0.9rem 2rem; border-radius: 3rem; font-size: 1rem; font-weight: bold; cursor: pointer;
+}
+.btn-secondary:hover { border-color: var(--text-main); color: var(--text-main); }
+
+details summary { cursor: pointer; margin-bottom: 1rem; color: var(--accent); font-weight: bold; outline: none; }
+</style>
+</head>
+<body>
+
+<div class="layout-container">
+    
+    <div class="sidebar-panel">
+        
+        <details>
+            <summary>🖥️ Display Settings</summary>
+            
+            <div class="setting-row">
+                <label class="setting-label"><span>UI Scale (Zoom)</span> <span id="lblBase">16px</span></label>
+                <input type="range" min="12" max="28" value="16" oninput="updateDisplay('base', this.value)">
+            </div>
+
+            <div class="setting-row">
+                <label class="setting-label"><span>Sidebar Width</span> <span id="lblWidth">280px</span></label>
+                <input type="range" min="250" max="500" value="280" oninput="updateDisplay('width', this.value)">
+            </div>
+
+            <div class="setting-row">
+                <label class="setting-label"><span>Card Text Size</span> <span id="lblZoom">1.0x</span></label>
+                <input type="range" min="0.8" max="2.5" step="0.1" value="1.0" oninput="updateDisplay('zoom', this.value)">
+            </div>
+
+            <div class="setting-row">
+                 <label class="checkbox-label" style="font-size:0.8rem;">
+                    <input type="checkbox" onchange="toggleVertical(this)"> Force Vertical Stack
+                </label>
+            </div>
+            <hr style="border:0; border-top:1px solid #4a5568; margin-bottom:1rem;">
+        </details>
+
+        <h3>Game Setup</h3>
+        <div class="setting-row">
+            <label class="setting-label">Rounds</label>
+            <input type="number" id="cardLimitInput" class="setting-input" value="10">
+        </div>
+        <div class="setting-row">
+            <label class="setting-label">Timer (Sec)</label>
+            <input type="number" id="timerLimitInput" class="setting-input" value="300" step="60">
+        </div>
+        <div class="setting-row">
+            <label class="checkbox-label">
+                <input type="checkbox" id="autoStartInput"> Auto-Start Timer
+            </label>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:end; margin-bottom:0.5rem;">
+            <h3>Departments</h3>
+            <button onclick="toggleAll()" style="background:none; border:none; color:var(--accent); cursor:pointer; font-size:0.8rem;">Select All</button>
+        </div>
+        <div id="categoryList"></div>
+    </div>
+
+    <div class="game-area">
+        <div class="card" id="gameCard">
+            
+            <div id="alarmOverlay" class="times-up-overlay">TIME<br>EXPIRED</div>
+
+            <div class="timer-container" id="timerBox">
+                <span id="timerDisplay">05:00</span>
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="timer-btn" onclick="startTimer()">▶</button>
+                    <button class="timer-btn" onclick="resetTimer()">↻</button>
+                </div>
+            </div>
+
+            <div id="cardBadge" style="background:rgba(255,255,255,0.1); padding:0.3rem 1rem; border-radius:20px; font-size:0.8rem; margin-bottom:1rem;">Ready</div>
+            <div id="cardText" class="scenario-text">
+                Welcome to the Emergency Response Exercise.<br>
+                <span style="font-size: 1rem; color: #a0aec0; display:block; margin-top:1rem;">
+                    Adjust "Display Settings" on the left if this text is too small.<br>
+                    Select Active Departments.<br>
+                    Click Start to Begin.
+                </span>
+            </div>
+            
+            <div id="scoringControls" class="game-controls" style="display:none;">
+                <div class="scoring-section">
+                    <div class="scoring-header">Primary Response (<span id="lblPrimaryDept">IT</span>)</div>
+                    <div class="slider-row">
+                        <span style="font-size:0.8rem; color:var(--danger)">No Plan</span>
+                        <input type="range" id="scorePrimary" min="0" max="10" value="5" oninput="document.getElementById('valPrimary').innerText=this.value">
+                        <span style="font-size:0.8rem; color:var(--success)">Current Plan</span>
+                        <span id="valPrimary" class="score-value">5</span>
+                    </div>
+                </div>
+
+                <div class="scoring-section">
+                    <div class="scoring-header">Collateral Damage (Check all that apply)</div>
+                    <div id="collateralList" class="collateral-grid"></div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button id="mainBtn" class="btn-primary" onclick="startGame()">Start Exercise</button>
+                <button id="skipBtn" class="btn-secondary" onclick="skipCard()" style="display:none;">Skip</button>
+                <button id="reportBtn" class="btn-primary" onclick="downloadReport()" style="display:none; background: var(--success); color: #1a202c;">Download Report</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar-panel">
+        <h3>campus Health</h3>
+        <div id="grandTotal" class="total-score">100%</div>
+        <div id="dashboardList"></div>
+        
+        <div style="margin-top:2rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.1)">
+            <h3 style="margin-bottom:0.5rem">Log</h3>
+            <div id="historyLog" style="font-size:0.85rem; color:#a0aec0; max-height: 200px; overflow-y:auto;"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+
+const scenarioData = [
+    // --- PAYROLL  ---
+    {cat:"Payroll", text:"The power went out as you were saving direct deposit information.  Your Direct Deposit files are now corrupted. Payday is tomorrow, and no one will get paid."},
+    {cat:"Payroll", text:"Ransomware encrypted the payroll server. Payroll Cannot calculate the hourly wages for 500 staff."},
+    {cat:"Payroll", text:"Clerical error resulted in double payments to all certified staff."},
+    {cat:"Payroll", text:"IRS flagged the campus for failure to submit payroll taxes due to a software glitch."},
+    {cat:"Payroll", text:"The Timeclock system for hourly employees reset, causing all data for the last 2 weeks to be lost."},
+    {cat:"Payroll", text:"A bad actor calls payroll pretending to be 'The Bank' and ends up changing most staff users direct deposit information to offshore accounts."},
+    {cat:"Payroll", text:"A Disgruntled employee deletes the master employee database before unexpectedly quitting."},
+    {cat:"Payroll", text:"ERP migration failed. W2s were all printed with incorrect Social Security numbers and payroll information."},
+    {cat:"Payroll", text:"Payroll for Substitute Teacher/Professors was never submitted and no one got paid. No Substitute Teacher/Professors will sign on anymore to take jobs."},
+    {cat:"Payroll", text:"State retirement fund reports missing contributions for 6 months. Employees are threatening Legal action."},
+    {cat:"Payroll", text:"A Spreadsheet with staff bank account numbers was accidently emailed to all parents."},
+    {cat:"Payroll", text:"A Bank Holiday error delays Direct deposit payments by 4 weeks. Staff are demanding cash advances."},
+    {cat:"Payroll", text:"A business administrator discovers several 'Ghost Employee' schemes paying almost $300k to non-existent staff."},
+    {cat:"Payroll", text:"Overtime calculations for bus drivers has been calculated incorrecly for 3 years. Union demands corrective action and payout."},
+    {cat:"Payroll", text:"The Check printer is broken. 200 paper checks are needed by 3 PM with no way to print them."},
+    {cat:"Payroll", text:"A roof leak destroyed physical payroll archives required for an upcoming audit."},
+    {cat:"Payroll", text:"The account is empty for funds for payroll due to a transfer error."},
+    {cat:"Payroll", text:"A Hacker changed routing number for the entire Maintenance department budget to a crypto exchange."},
+    {cat:"Payroll", text:"3 months of invoices were never received. The accounts only have enough money for 1 month, but vendors are demanding payment."},
+    {cat:"Payroll", text:"Our Bank has declared bankruptcy and is being bought out. During this transition, all accounts are frozen for 14 days."},
+    {cat:"Payroll", text:"A third party audit identified that an Identity theft ring filed fraudulent unemployment claims for 50 Teacher/Professors."},
+    {cat:"Payroll", text:"A Power surge fried your hard drive on your computer. You did put everything on your network drive, but the last backup is over 30 days old."},
+    {cat:"Payroll", text:"A Retroactive pay raise change crashed the system. Checks will print, but they all say $0.00."},
+    {cat:"Payroll", text:"Taxes were not taken from employee checks even though the paystubs reported correct information. Employees go to file their taxes and find they all owe $15,000 in back taxes."},
+    {cat:"Payroll", text:"The Payroll manager has a medical emergency on processing day and will be out several weeks. No one knows how to run payroll."},
+    {cat:"Payroll", text:"Union claims campus illegally froze step increases during negotiations."},
+    {cat:"Payroll", text:"A file folder containing all the manual checks is dropped in the parking lot. Cameras show that someone picked it up, and they dont look familiar."},
+    {cat:"Payroll", text:"An Audit reveals underpayment of custodians for additional time for snow removal."},
+    {cat:"Payroll", text:"Documents are leaked containing social security numbers and payroll information for 300 employees."},
+    {cat:"Payroll", text:"An Accounting error caused Summer pay accruals to be miscalculated. Teacher/Professors didnt receive any checks for July."},
+
+    // --- INSTRUCTION  ---
+    {cat:"Instruction", text:"The State Testing Platform crashed statewide on the first morning of exams. Parents are panicking and calling schools asking if they should pick up their children immediately."},
+    {cat:"Instruction", text:"A controversial library book has been challenged by a vocal community group. Local news crews are currently in the lobby demanding a comment on 'censorship' vs 'protection'."},
+    {cat:"Instruction", text:"The Learning Management System (Canvas/Google) has gone down during Finals Week. Gradebooks are inaccessible, and students cannot submit final projects."},
+    {cat:"Instruction", text:"A Teacher/Professor accidentally projected a confidential IEP meeting document on the smartboard during a crowded Open House. Parents saw everything."},
+    {cat:"Instruction", text:"An AI-generated cheating scandal has been uncovered involving 40% of the Senior class. Parents are threatening lawsuits if their students are failed or do not graduate."},
+    {cat:"Instruction", text:"A serious chemical spill in the science lab has forced the evacuation of campus wing during AP Exams. Students are displaced and tests are compromised."},
+    {cat:"Instruction", text:"A viral TikTok challenge encourages students to steal Teacher/Professor laptops. 50 devices are already missing, impeding instruction across the campus."},
+	{cat:"Instruction", text:"An audit revealed that A Teacher/Professors Education turned out to be from a fake university.  The community is demanding to see every single employees diplomas and resumes."},
+    {cat:"Instruction", text:"A stomach flu has left campus with 30 unstaffed classrooms. There are not enough substitutes to cover the building."},
+    {cat:"Instruction", text:"The Internet content filter failed, allowing students to access adult content for 2 weeks before it was caught. Parents are outraged."},
+    {cat:"Instruction", text:"Report cards were mailed out with the wrong student names attached to the wrong grades. Privacy has been breached for thousands of students."},
+    {cat:"Instruction", text:"The new curriculum is delayed until November. Teacher/Professors have no materials to start campus year, digital or physical."},
+    {cat:"Instruction", text:"A parent group demands the immediate removal Chromebooks in grades 1-5, claiming technology is giving their children ADHD.."},
+    {cat:"Instruction", text:"A student brings a loaded hunting rifle to school for 'Show-and-Tell.' campus is in lockdown."},
+    {cat:"Instruction", text:"campus valedictorian is found to have had grades changed by an administrator. The runner-up's family has hired a lawyer."},
+    {cat:"Instruction", text:"There was a Mass failure of the HVAC system during class. Temperatures in classrooms have hit 95°F, and students are fainting."},
+    {cat:"Instruction", text:"A copyright lawsuit has been filed against the campus for several departments of Teacher/Professors using unlicensed PDF's and textbooks found online."},
+    {cat:"Instruction", text:"A student hacking group accessed the attendance system and changed the records to 'absent' for all students."},
+    {cat:"Instruction", text:"A popular foreign language Teacher/Professor is discovered to have falsified their teaching credentials and has been teaching without a license for 5 years."},
+    {cat:"Instruction", text:"During a class, an unapproved and graphic video was shown to 6th graders. Parents are storming the board meeting tonight."},
+    {cat:"Instruction", text:"The master schedule file was corrupted overnight. Students have arrived for the first day of school with no class schedules."},
+    {cat:"Instruction", text:"A field trip bus broke down 2 hours away from the campus. 60 first graders are stranded on the side of the highway with no food or water."},
+    {cat:"Instruction", text:"Toxic black mold has been discovered in the library books. The entire collection must be quarantined and potentially destroyed."},
+    {cat:"Instruction", text:"After the end of year State Tests, the testing software was found to have a bug that allowed the use of AI to cheat on the tests.  The state says we have to re-test the entire School population on Chromebooks only during the summer."},
+    {cat:"Instruction", text:"Two rival students start a large brawl in the cafeteria during lunch. Police are on scene and campus is in lockdown."},
+    {cat:"Instruction", text:"A Teacher/Professor's laptop containing unencrypted student data was stolen from their car. This was a personal device, so we have no idea whats on it."},
+    {cat:"Instruction", text:"Parents are protesting a guest speaker scheduled for campus assembly, claiming the speaker promotes a radical political agenda."},
+    {cat:"Instruction", text:"Zero-tolerance policy results in the suspension of a student for a plastic butter knife. The story has gone national, making the campus look ridiculous."},
+    {cat:"Instruction", text:"The Virtual school platform crashes on a snow day designated for e-learning. Students cannot log in."},
+    {cat:"Instruction", text:"A chemistry experiment went wrong, setting off the fire sprinklers in the science wing. Water damage is extensive."},
+
+    // --- TECHNOLOGY  ---
+    {cat:"Technology", text:"A Ransomware attack has encrypted the Student Information System (SIS). Office staff cannot verify authorized guardians for student pickup, causing chaos at dismissal."},
+    {cat:"Technology", text:"The campus SSL security certificate has expired unexpectedly. All student devices and staff laptops are offline and cannot connect to the internet campus-wide."},
+    {cat:"Technology", text:"A sophisticated phishing attack tricked staff into revealing credentials. 50 staff members had their direct deposit information changed to offshore accounts overnight."},
+    {cat:"Technology", text:"A student plugged in his own router and is using campuss resources to mine Bitcoin. The network is crawling, and devices are starting to get 192.168 addresses."},
+    {cat:"Technology", text:"The cooling system in the main server room has failed. Mission-critical servers are overheating and shutting down."},
+    {cat:"Technology", text:"A 3rd party vendor suffered a data breach, exposing the medical records and physicals of all student athletes."},
+    {cat:"Technology", text:"A neighboring business is installing a new sprinkler systme and a fiber line was accidentally cut, taking the entire campus offline. There is no internet or VoIP phone service."},
+    {cat:"Technology", text:"The VoIP phone system is down campus-wide. No one can dial 911 from classrooms in an emergency."},
+    {cat:"Technology", text:"Google and Microsoft cloud services are experiencing a global outage. Email, Drive, and Teams are completely inaccessible."},
+    {cat:"Technology", text:"The electronic badge access system failed. All doors are locked and the badge readers are not working."},
+    {cat:"Technology", text:"We have just suffered a Cyber attack.  Our Cyber insurance policy was cancelled because we failed to implement the base insurability requirements."},
+    {cat:"Technology", text:"A Distributed Denial of Service (DDoS) attack is hitting the campus website, making it impossible for parents or staff to access information."},
+    {cat:"Technology", text:"Smart Tv's in every classroom have been hacked and are displaying a manifesto from an unknown group."},
+    {cat:"Technology", text:"The backup generator for the data center failed to start during a severe storm. All systems are down and data corruption is likely."},
+    {cat:"Technology", text:"We received most of our order, but Supply chain delays mean the remaining new computers and laptops won't arrive for 4 months. We have already shipped off most of the devices to surplus.  We have no devices for them."},
+    {cat:"Technology", text:"The IT Director resigned abruptly this morning and refused to share the Main password locker information before leaving."},
+    {cat:"Technology", text:"A rogue wireless access point was found on campus. It has been harvesting student and staff login credentials for weeks."},
+    {cat:"Technology", text:"The email spam filter malfunctioned and blocked all incoming mail from the State Department of Education, causing us to miss critical deadlines."},
+    {cat:"Technology", text:"A bad software update was pushed overnight and 'bricked' 2,000 iPads. They are completely unusable until manually reset."},
+    {cat:"Technology", text:"Security camera footage was deleted remotely by an unauthorized user. We have lost video evidence of a recent large scale incident."},
+    {cat:"Technology", text:"A server from a legacy system is found to still be active and compromised in the server room.  It looks like malware is spreading to the other servers."},
+    {cat:"Technology", text:"A hardware keylogger was found plugged into the Superintendent/President's computer. We don't know how long it has been there."},
+    {cat:"Technology", text:"The campus domain name registration expired and was immediately bought by a gambling site. Our URL now redirects to a casino."},
+    {cat:"Technology", text:"A student created a 'Deepfake' audio recording of several administrators saying racist slurs. It is spreading rapidly on social media."},
+    {cat:"Technology", text:"A 'Logic Bomb' virus hit the print servers. All printers are spewing paper with 'HACKED' printed on them until trays are empty."},
+    {cat:"Technology", text:"The intercom system has been hacked and is playing loud death metal music into every classroom. It cannot be turned off."},
+    {cat:"Technology", text:"Database corruption has merged the staff and student groups. Students now have access to staff-only and admin network shares and email groups."},
+    {cat:"Technology", text:"The Emergency Alert System was hacked and sent a text message marked as 'Real World Emergency' to all parents, causing panic."},
+    {cat:"Technology", text:"A Zero-Day vulnerability has been discovered in the campus firewall. We are completely exposed until a patch is developed."},
+    {cat:"Technology", text:"After discovering a rouge file, The Tech Support helpdesk is overwhelmed with 1,000 tickets in one hour. It appears to be a coordinated attack to slow down IT response."},
+
+    // --- FACILITIES / CUSTODIAL  ---
+    {cat:"Facilities/Custodial", text:"A construction crew accidentally severed the main gas line on campus. The building must be evacuated immediately, but outside temperatures are currently -10°F."},
+    {cat:"Facilities/Custodial", text:"A major water main burst on campus, cutting off all water pressure. There are no functional toilets or sinks available, and lunch period has just begun."},
+    {cat:"Facilities/Custodial", text:"Toxic mold has been discovered inside the walls of the portable classrooms. Parents are threatening to sue, claiming it caused their children's asthma."},
+    {cat:"Facilities/Custodial", text:"The gymnasium roof collapsed under a heavy snow load. Thankfully it was empty, but the building is structurally unsound."},
+    {cat:"Facilities/Custodial", text:"A massive sinkhole opened up in the middle of the soccer field. The field is condemned, and neighboring properties are at risk."},
+    {cat:"Facilities/Custodial", text:"Legionella bacteria was found in campus water fountains during routine testing. We must provide bottled water for 600 students."},
+    {cat:"Facilities/Custodial", text:"The stadium lights failed completely during the Homecoming game. 2,000 people are sitting in pitch black darkness in the stands."},
+    {cat:"Facilities/Custodial", text:"A massive swarm of bees has colonized the sports Fields. Several people have been stung, and sports games are cancelled indefinitely."},
+    {cat:"Facilities/Custodial", text:"The main boiler exploded on campus. There is significant structural damage and no heat for the building."},
+    {cat:"Facilities/Custodial", text:"Raw sewage is backing up into the kitchen drains. The smell is overpowering, and lunch service must be halted immediately."},
+    {cat:"Facilities/Custodial", text:"Vandals smashed 40 windows at campus over the weekend. We need to board them up before school starts in 2 hours."},
+    {cat:"Facilities/Custodial", text:"The chemical fire suppression system accidentally discharged in the server room. The room is filled with gas and cannot be entered."},
+    {cat:"Facilities/Custodial", text:"Asbestos was disturbed during minor renovations in the hallway. The entire wing must be sealed off and hazmat teams called in."},
+    {cat:"Facilities/Custodial", text:"A wild deer crashed through a plate glass window and is running loose in the hallways. Students and staff are terrified."},
+    {cat:"Facilities/Custodial", text:"A fire at the local substation has caused a campus-wide power outage. Backup batteries will only last for 60 minutes."},
+    {cat:"Facilities/Custodial", text:"The elevator is stuck between floors with a student in a wheelchair inside. The Fire Department is en route but delayed."},
+    {cat:"Facilities/Custodial", text:"Lead levels in the drinking water have tested at 10x the legal limit. We must shut off all water immediately."},
+    {cat:"Facilities/Custodial", text:"A homeless encampment has been set up on the edge of campus. They have broken a sprinkler line and are using it as running water and there arre safety concerns."},
+    {cat:"Facilities/Custodial", text:"The master key for campus is missing. We must re-key the entire building immediately."},
+    {cat:"Facilities/Custodial", text:"A strong chemical smell is reported in the science hallway. Students are beginning to faint, and we cannot identify the source."},
+    {cat:"Facilities/Custodial", text:"A snow plow driver lost control and struck a parked school bus in the lot. Both vehicles are heavily damaged and no one can get in or out of the parking lot.."},
+    {cat:"Facilities/Custodial", text:"The new turf field has been condemned due to toxicity concerns. All home games must be cancelled or moved."},
+    {cat:"Facilities/Custodial", text:"Radon levels in the basement classrooms have tested at unsafe levels. We must relocate 4 classrooms immediately."},
+    {cat:"Facilities/Custodial", text:"A large tree fell on the power lines connecting the administration building. Live wires are sparking on the ground."},
+    {cat:"Facilities/Custodial", text:"Gang graffiti and symbols were painted on the front of campus overnight. It must be removed before students arrive."},
+    {cat:"Facilities/Custodial", text:"The PA system is malfunctioning and emitting a high-pitched screech that won't stop. It is physically painful to be in the building."},
+    {cat:"Facilities/Custodial", text:"The automatic door locking system is jammed. Students and staff are locked out of the building in the freezing cold."},
+    {cat:"Facilities/Custodial", text:"A custodian accidentally mixed bleach and ammonia, creating a cloud of toxic chloramine gas. The wing must be evacuated."},
+    {cat:"Facilities/Custodial", text:"The retention pond is overflowing and flooding the parking lot during heavy rain. Cars are beginning to float."},
+    {cat:"Facilities/Custodial", text:"Solar panels on the roof caught fire. The fire is contained to the roof, but smoke is filling the ventilation system."},
+
+    // --- TRANSPORTATION  ---
+    {cat:"Transportation", text:"The bus driver union has organized a surprise strike. 40% of routes have no driver this morning, leaving 2,000 students stranded."},
+    {cat:"Transportation", text:"A bus was involved in a minor fender-bender. However, social media is already reporting it as a 'Mass Casualty Event,' causing parents to rush the scene."},
+    {cat:"Transportation", text:"The campus diesel fuel supply was contaminated with water. Half the bus fleet has broken down on the side of the road."},
+    {cat:"Transportation", text:"An angry parent boarded a bus at a stop and physically assaulted the driver. The driver refuses to continue the route."},
+    {cat:"Transportation", text:"The GPS routing software crashed. Substitute drivers are completely lost and children are being dropped off at wrong locations."},
+    {cat:"Transportation", text:"A student was left sleeping on the bus after the driver parked it at the depot. The student was found hours later."},
+    {cat:"Transportation", text:"A severe ice storm hit during dismissal. Buses are sliding off roads and cannot safely return students home."},
+    {cat:"Transportation", text:"Mechanics discovered that brake lines were intentionally cut on 3 buses overnight. This is a targeted act of sabotage."},
+    {cat:"Transportation", text:"A bus driver failed a random drug test immediately after completing their morning run. We must notify parents."},
+    {cat:"Transportation", text:"Emergency bridge repairs have forced a 30-minute detour for all routes. Students will be late for exams."},
+    {cat:"Transportation", text:"There is a regional fuel shortage. The campus only has 2 days of diesel fuel remaining before vehicles cannot run."},
+    {cat:"Transportation", text:"A bus caught fire on the highway. Students evacuated safely, but traffic is stopped for miles and media helicopters are overhead."},
+    {cat:"Transportation", text:"Parents are blocking the bus loop with their cars to protest a boundary change. Buses cannot enter or exit campus."},
+    {cat:"Transportation", text:"The two-way radio system is down. Dispatch cannot contact any drivers, and we have no location data."},
+    {cat:"Transportation", text:"A large fight broke out on a bus involving 10 students. The driver pulled over and called the police, but the situation is volatile."},
+    {cat:"Transportation", text:"Catalytic converters were stolen from 20 campus vehicles overnight. The vehicles are incredibly loud and cannot legally be driven."},
+    {cat:"Transportation", text:"A severe driver shortage has forced the campus to cancel all athletic and field trip transportation indefinitely."},
+    {cat:"Transportation", text:"A campus vehicle struck a pedestrian in a crosswalk. The condition of the pedestrian is unknown."},
+    {cat:"Transportation", text:"Heavy fog has reduced visibility to zero. Buses are grounded at the depot, but students are waiting at stops."},
+    {cat:"Transportation", text:"A student threw a heavy object out the bus window, smashing the windshield of a passing car. The driver is suing."},
+    {cat:"Transportation", text:"The activities bus contractor is demanding a 20% rate hike immediately, or they threaten to walk away from the contract tomorrow."},
+    {cat:"Transportation", text:"A bus driver suffered a medical emergency behind the wheel and swerved off the road. Thankfully the bus didn't flip."},
+    {cat:"Transportation", text:"The chargers for the new electric bus fleet malfunctioned. 10 buses have no power and cannot run their routes."},
+    {cat:"Transportation", text:"A sinkhole swallowed the exit of the bus depot. No buses can leave the lot to start their morning runs."},
+    {cat:"Transportation", text:"A road rage incident escalated when a driver pulled a gun on a campus bus driver full of students."},
+    {cat:"Transportation", text:"The wheelchair lift failed on a Special Needs bus. A student is stuck on the bus and cannot exit safely."},
+    {cat:"Transportation", text:"Overcrowding on campus transpotation has reached a critical point. 15 students are standing in the aisle on Route 9, which is illegal and unsafe."},
+    {cat:"Transportation", text:"A set of master keys for the vehicles fleet was stolen from the dispatch office. We are worried about vehicle theft."},
+    {cat:"Transportation", text:"The new parent app sent students to the wrong bus stops. Hundreds of children are waiting at empty corners."},
+    {cat:"Transportation", text:"Flash flood waters have cut off access to the bus garage. We cannot get the buses out to pick up students."},
+
+    // --- HR  ---
+    {cat:"HR", text:"A Teacher/Professor's personal social media account was discovered by students. It contains inappropriate content that violates code of conduct, and it is going viral."},
+    {cat:"HR", text:"The Superintendent/President's email account was hacked and sent a realistic-looking 'I Resign Effective Immediately' email to the entire campus staff."},
+    {cat:"HR", text:"Our background check vendor suffered a data breach. The Social Security Numbers of all recent hires have been exposed."},
+    {cat:"HR", text:"A formal sexual harassment allegation has been filed against a popular Professor. The community is divided."},
+    {cat:"HR", text:"A state audit reveals that 10% of our staff do not have valid state licenses due to paperwork errors. They must be removed from classrooms."},
+    {cat:"HR", text:"Mass resignation: The entire math department has quit in solidarity over a pay dispute."},
+    {cat:"HR", text:"A long-time staff member has been arrested for embezzlement of athletic booster funds. The theft totals over $50,000."},
+    {cat:"HR", text:"A discrimination lawsuit has been filed by a job candidate who claims they were not hired due to their age and race."},
+    {cat:"HR", text:"Confidential employee medical records were accidentally posted to the public intranet. HIPAA laws have been violated."},
+    {cat:"HR", text:"A Teacher/Professor was found visibly intoxicated in the classroom during 3rd period. Students filmed the incident."},
+    {cat:"HR", text:"A whistleblower claims administration is falsifying graduation rate data to meet state targets. An investigation is launched."},
+    {cat:"HR", text:"The substitute Teacher/Professor shortage is so severe that custodians and secretaries are being forced to cover classes."},
+    {cat:"HR", text:"The HR Director lost the master file of contract renewals. We don't know which staff members have been officially renewed."},
+    {cat:"HR", text:"A football coach was caught illegally recruiting players from neighboring campuss. The state athletic association is investigating."},
+    {cat:"HR", text:"Internal results of a staff morale survey were leaked to the press. 90% of staff said they plan to leave within 2 years."},
+    {cat:"HR", text:"Immigration officials have requested an audit of our support staff. There are concerns about work visa documentation."},
+    {cat:"HR", text:"A Teacher/Professor is accused of having an inappropriate relationship with a student. Police are interviewing witnesses now."},
+    {cat:"HR", text:"Our Workers Comp insurance carrier has dropped the campus due to an excessively high number of claims this year."},
+    {cat:"HR", text:"An employee has obtained a restraining order against another employee. Both work in the same building."},
+    {cat:"HR", text:"A payroll error resulted in zero retirement contributions being made for any employee for the entire fiscal year."},
+    {cat:"HR", text:"A severe flu wave has hit the campus. 40% of staff have called in sick, and we cannot operate campuss."},
+    {cat:"HR", text:"A nepotism scandal has erupted after a Board Member's unqualified child was hired as a Director over qualified candidates."},
+    {cat:"HR", text:"A physical fight broke out between two Teacher/Professors in the faculty lounge. Police were called to break it up."},
+    {cat:"HR", text:"The background check software crashed.  They dont expect to be up for months. We have 15 people wating on the results to be hired.  In the meantime, we are 15 people short on staff."},
+    {cat:"HR", text:"An anonymous letter accuses the Superintendent/President's Cabinet of creating a toxic and hostile work environment."},
+    {cat:"HR", text:"A bus driver was hired and allowed to drive before their background check cleared. The check just came back with red flags and they have been driving for 3 months."},
+    {cat:"HR", text:"A class-action lawsuit has been filed by female administrators alleging a systemic gender pay gap in the campus."},
+    {cat:"HR", text:"The Teacher/Professors Union has authorized a strike to begin in 48 hours if demands are not met. Schools will close."},
+    {cat:"HR", text:"The Employee Assistance Program (EAP) provider cancelled our contract. Staff have no access to mental health support."},
+
+    // --- NUTRITION  ---
+    {cat:"Nutrition", text:"The walk-in freezer at the central kitchen failed over the weekend. $50,000 worth of food has spoiled, and there is no food sfor tomorrow."},
+    {cat:"Nutrition", text:"Students at three different schools are vomiting. The common denominator appears to be the milk served at lunch today."},
+    {cat:"Nutrition", text:"A major supply chain failure occurred. The food distributor did not show up, and there is absolutely no food available for lunch service."},
+    {cat:"Nutrition", text:"A peanut was undetected in a 'Nut Free' meal, causing a student to go into anaphylactic shock. The EpiPen was used."},
+    {cat:"Nutrition", text:"A cafeteria worker has been diagnosed with Hepatitis A. The Health Department is intervening and offering vaccines to anyone that may have been exposed."},
+    {cat:"Nutrition", text:"An grease fire in the central kitchen oven triggered the sprinklers, ruining all stock and damaging the equipment."},
+    {cat:"Nutrition", text:"A USDA audit found the campus owes $500,000 for claiming reimbursement for ineligible meals over the last 3 years."},
+    {cat:"Nutrition", text:"A severe mouse infestation has forced the immediate closure of campus kitchen by the Health Inspector."},
+    {cat:"Nutrition", text:"The Point of Sale (POS) system is down. Lunch lines are backing up out the door, and no one can get their meal."},
+    {cat:"Nutrition", text:"Students have staged a hunger strike to protest the quality of the food. Media outlets are interviewing students."},
+    {cat:"Nutrition", text:"The delivery truck crashed on the way to campus. This week's supply of fresh produce is destroyed."},
+    {cat:"Nutrition", text:"Sensitive Free/Reduced Lunch application data was leaked online. The economic status of families is now public."},
+    {cat:"Nutrition", text:"A foreign object (broken glass) was found in a student's mashed potatoes."},
+    {cat:"Nutrition", text:"The milk cooler temperature log was found to be falsified. Milk has been stored at warm temperatures for days."},
+    {cat:"Nutrition", text:"Due to staff shortages, there is only 1 person available to serve lunch to 500 students."},
+    {cat:"Nutrition", text:"The vendor issued an urgent recall on chicken nuggets due to metal shavings found in the product. We just served them."},
+    {cat:"Nutrition", text:"A wad of cash was discovered among cafeteria staff personal items. Checking the register it looks like thousands of dollars are missing."},
+    {cat:"Nutrition", text:"A power outage struck during lunch service. We are operating under emergency lights, and hot food is cooling rapidly."},
+    {cat:"Nutrition", text:"A city water contamination warning has been issued. We cannot use water for cooking or washing dishes."},
+    {cat:"Nutrition", text:"School lunch debt for has reached $100,000. The Board is demanding a strict collection agency policy."},
+    {cat:"Nutrition", text:"A gas leak in the kitchen forced an evacuation during prep time. Lunch will not be ready on time."},
+    {cat:"Nutrition", text:"A Combi-oven exploded, injuring a staff member. The kitchen is a crime scene/investigation zone."},
+    {cat:"Nutrition", text:"Food delivery trucks are blocked by a protest line outside campus. We cannot get supplies into the building."},
+    {cat:"Nutrition", text:"Allergens were not listed on the new menu items. Students are now getting sick and not showing up for school."},
+    {cat:"Nutrition", text:"An inventory software hack deleted all stock records. We have no idea what food we have or need to order."},
+    {cat:"Nutrition", text:"A storm destroyed the receiving dock door. Raccoons and pests got in overnight and contaminated the food."},
+    {cat:"Nutrition", text:"The Food Service Director quit without ordering next week's food. We are facing a shortage on Monday."},
+    {cat:"Nutrition", text:"The Health Inspector gave the kitchen a 'C' rating. The local news picked up the report and the public is furious."},
+    {cat:"Nutrition", text:"Vegetarian meal options ran out immediately, violating campus policies on providing dietary accommodations."},
+	{cat:"Nutrition", text:"The Vegetarian meal option was found to be made entirely out of beef. Local news just got wind of the situation."},
+
+    // --- SAFETY  ---
+    {cat:"Safety", text:"A non-custodial parent successfully bypassed the front office security and removed a student from class without authorization."},
+    {cat:"Safety", text:"The fire alarm system on campus is malfunctioning and stuck in 'Alarm' mode. It cannot be silenced."},
+    {cat:"Safety", text:"A drone is hovering over the campus filming students. Staff do not know who is piloting it or their intent."},
+    {cat:"Safety", text:"An anonymous bomb threat was called in to the main Office. The caller claimed devices are in three locations."},
+    {cat:"Safety", text:"A student was found with a handgun in their backpack. campus is in immediate lockdown."},
+    {cat:"Safety", text:"A strange chemical haze has filled the hallway. The Hazmat team has been deployed to identify the substance."},
+    {cat:"Safety", text:"The Active Shooter alarm was triggered by a sensor malfunction, sending campus into a terrified panic."},
+    {cat:"Safety", text:"A high-speed police pursuit ended with a crash on campus front lawn. Suspects fled onto campus."},
+    {cat:"Safety", text:"campus Resource Officer (SRO) used a taser on a student during an altercation. There is public outcry."},
+    {cat:"Safety", text:"A student is missing. They were not on the bus and are not on campus. Police are searching."},
+    {cat:"Safety", text:"A reunification drill went wrong. A miscommunication led parents to believe it was a real emergency, causing panic."},
+    {cat:"Safety", text:"Gang tagging and symbols were found on all exterior doors overnight. It appears to be a turf dispute."},
+    {cat:"Safety", text:"A bear is roaming the parking lot during arrival time."},
+    {cat:"Safety", text:"A severe thunderstorm warning is in effect. Everyone is out on the sports fields."},
+    {cat:"Safety", text:"A student suffered an overdose in the restroom. Narcan was administered, but the situation is critical."},
+    {cat:"Safety", text:"The new metal detectors are giving false positives for every individual, causing a massive backup at the entrance."},
+    {cat:"Safety", text:"A custody dispute turned violent in the front office. Police were called to remove the parents."},
+    {cat:"Safety", text:"A student is live-streaming a large fight. Thousands of people are watching online."},
+    {cat:"Safety", text:"A gas leak in the science wing forced an evacuation. We need to transport students to an alternate site."},
+    {cat:"Safety", text:"A suspicious package was found near the front entrance. The bomb squad has been called to investigate."},
+    {cat:"Safety", text:"Severe cyberbullying drove a student to attempt self-harm on campus. Mental health teams are needed."},
+    {cat:"Safety", text:"Security cameras are offline campus-wide. There is loud shouting coming from multiple directions, but we have no idea why."},
+    {cat:"Safety", text:"Protestors are blocking the main entrance to campus, preventing students and staff from entering."},
+    {cat:"Safety", text:"Lightning struck campus chimney, sending bricks falling onto the sidewalk where students walk."},
+    {cat:"Safety", text:"A registered sex offender tried to volunteer to work with students. The background check caught it 2 weeks after they started."},
+    {cat:"Safety", text:"A substitute custodian lost the master key ring. We cannot secure the building tonight."},
+    {cat:"Safety", text:"campus nurses are no where around, and there is no one qualified to administer insulin to a fainted diabetic student."},
+    {cat:"Safety", text:"A stray dog wandered onto the campus and bit a student. Animal control is en route."},
+    {cat:"Safety", text:"The rooftop access hatch was found unlocked and open. We don't know if anyone entered the building overnight."},
+
+    // --- FINANCE / BA  ---
+    {cat:"Finance/BA", text:"The State Department of Ed announced a formula calculation error. The campus is facing a surprise $2 million budget shortfall."},
+    {cat:"Finance/BA", text:"The campus credit card used for auto-renewing cloud subscriptions (Google/Zoom) was cancelled for fraud. Services are shutting down."},
+    {cat:"Finance/BA", text:"The Treasurer/Business Administrator accidentally wired $50,000 to a scammer posing as a vendor. The money is likely gone."},
+    {cat:"Finance/BA", text:"The Tax Levy failed by 50 votes. Massive budget cuts will be required for the next school year."},
+    {cat:"Finance/BA", text:"A federal audit found that $1M in Title I funds were misspent on unapproved items. We must pay it back."},
+    {cat:"Finance/BA", text:"Grant funding for the After School programs was not renewed."},
+    {cat:"Finance/BA", text:"Inflation has caused utility costs to spike 300% over budget. We have to cut funds elsewhere to keep the lights on."},
+    {cat:"Finance/BA", text:"The Business Administrator/Treasurer was arrested for stealing funds. The sports teams now have no budget."},
+    {cat:"Finance/BA", text:"The campus bond rating was downgraded. Borrowing costs for the new building will skyrocket."},
+    {cat:"Finance/BA", text:"An unexpected enrollment drop of 700 students will reduce our state funding significantly."},
+    {cat:"Finance/BA", text:"A class action lawsuit settlement requires a $5M payout from the campus reserve fund."},
+    {cat:"Finance/BA", text:"The new construction project is $10M over budget due to supply chain issues. Construction has halted."},
+    {cat:"Finance/BA", text:"The bank made a processing error, causing all campus checks issued yesterday to bounce."},
+    {cat:"Finance/BA", text:"The Purchase Order (PO) system is down. Nothing can be bought or ordered campus-wide for the next 3 weeks."},
+    {cat:"Finance/BA", text:"The State Government froze all educational funding due to political gridlock. We have zero cash flow."},
+    {cat:"Finance/BA", text:"An inventory audit shows $200,000 in technology assets are missing. We cannot account for these devices."},
+    {cat:"Finance/BA", text:"Local property tax collection is down 15%, creating a significant revenue gap."},
+    {cat:"Finance/BA", text:"A vendor was accidentally paid twice for a $1M project. They are refusing to return the duplicate payment."},
+    {cat:"Finance/BA", text:"We are facing a cash flow crisis. We cannot pay our bills until the next tax distribution arrives."},
+    {cat:"Finance/BA", text:"Fuel prices have doubled. The transportation budget is exhausted for the year."},
+    {cat:"Finance/BA", text:"Special Education costs have exceeded the budget by 40%. We must pull from the general fund."},
+    {cat:"Finance/BA", text:"A procurement scandal revealed a Director took kickbacks from a vendor. Contracts are being voided."},
+    {cat:"Finance/BA", text:"The entire stock of blank paper checks was stolen from the safe. We must freeze the accounts."},
+    {cat:"Finance/BA", text:"The budget software file is corrupted. All historical financial data is lost."},
+    {cat:"Finance/BA", text:"Insurance premiums increased by 50% overnight due to recent claims. We are over budget."},
+    {cat:"Finance/BA", text:"The IRS is auditing the campus bond issuance compliance. They found some inconsistencies.  We now owe 3 Million back."},
+    {cat:"Finance/BA", text:"Counterfeit bills were found in the deposits. The bank is investigating."},
+    {cat:"Finance/BA", text:"The emergency repair fund is completely empty after the winter storms. We have no buffer."},
+    {cat:"Finance/BA", text:"Unpaid student fees have reached an unsustainable level. We have a massive hole in the budget."},
+
+    // --- SPED  ---
+    {cat:"SPED", text:"Confidential Psychological Evaluation records for 500 students were found in a dumpster behind the Education Center."},
+    {cat:"SPED", text:"A specialized transport van for medically fragile students was involved in a serious accident. There are liability concerns."},
+    {cat:"SPED", text:"IEP timeline compliance has dropped to 60%. The State has threatened a takeover of the department."},
+    {cat:"SPED", text:"A non-verbal student walked out of school unnoticed and was found 2 miles away by a stranger."},
+    {cat:"SPED", text:"Restraint and Seclusion logs were found to be falsified by staff to hide the frequency of incidents."},
+    {cat:"SPED", text:"A severe shortage of paraprofessionals means 1:1 services are not being met. Parents are suing."},
+    {cat:"SPED", text:"A Due Process hearing ruled against the campus. We owe $200k in legal fees and compensatory education."},
+    {cat:"SPED", text:"A medication error occurred where the nurse gave a student the wrong pill. The student was hospitalized."},
+    {cat:"SPED", text:"The Special Ed Director resigned mid-year. There is no leadership for the department."},
+    {cat:"SPED", text:"The wheelchair lift broke in campus. A student is stuck on the 2nd floor and cannot leave."},
+    {cat:"SPED", text:"A parent claims their child is being bullied specifically because of their disability. It's a civil rights issue."},
+    {cat:"SPED", text:"State funding for High Cost students was cut. We cannot afford the necessary out-of-campus placements."},
+    {cat:"SPED", text:"Expensive adaptive technology devices (AAC talkers) were stolen from a classroom."},
+    {cat:"SPED", text:"A Teacher/Professor was accused of verbal abuse, recorded on a student's personal device."},
+    {cat:"SPED", text:"We have a placement crisis. There are zero seats available in the behavioral unit for a violent student."},
+    {cat:"SPED", text:"Service logs for OT/PT are missing. We cannot bill Medicaid for reimbursement."},
+    {cat:"SPED", text:"A student bit a staff member, drawing blood. This triggers both Workers Comp and student discipline procedures."},
+    {cat:"SPED", text:"A deaf student was not provided an interpreter for a mandatory school assembly. This is an ADA violation."},
+    {cat:"SPED", text:"Mandatory dyslexia screenings were ignored for 3 years. We are out of compliance."},
+    {cat:"SPED", text:"An Emotional Support Animal (dog) bit another student in the hallway. Liability is unclear."},
+    {cat:"SPED", text:"Digital files for 50 SPED students were lost during a data migration. We have no IEPs for them."},
+    {cat:"SPED", text:"A medically fragile student needs a nurse to attend school, but no nurses are available."},
+    {cat:"SPED", text:"Parents are demanding a private school placement at campus expense because we cannot meet needs."},
+    {cat:"SPED", text:"A Special Ed bus driver dropped a non-verbal student at the wrong house. The parents are terrified."},
+    {cat:"SPED", text:"An Office for Civil Rights (OCR) complaint was filed regarding website accessibility for blind users."},
+    {cat:"SPED", text:"The Snoezelen (Sensory) room equipment was vandalized. It will cost thousands to replace."},
+    {cat:"SPED", text:"General Ed Teacher/Professors are refusing to follow IEP accommodations, claiming they are 'too much work'."},
+    {cat:"SPED", text:"A Due Process complaint alleges 'Child Find' failure, saying we ignored signs of disability for years."},
+    {cat:"SPED", text:"A Behavior Intervention Plan (BIP) was not followed, and a student was suspended illegally."},
+    {cat:"SPED", text:"The transport vendor refuses to carry a violent student anymore. We have no way to get them to school."}
+];
+
+/* LOGIC */
+let deptHealth = {};
+let activeCategories = new Set();
+let allCategories = []; 
+let deck = [];
+let currentCard = null;
+let timerInterval;
+let defaultTime = 300;
+
+window.onload = () => {
+    // 1. Init Data
+    if(!scenarioData || !scenarioData.length) return alert("Data Error");
+    allCategories = [...new Set(scenarioData.map(i => i.cat))].sort();
+    allCategories.forEach(c => activeCategories.add(c));
+    
+    // 2. Render
+    renderSidebar();
+    resetDashboard();
+};
+
+/* DISPLAY */
+function updateDisplay(type, val) {
+    const r = document.documentElement;
+    if(type==='base') { r.style.setProperty('--base-size', val+'px'); document.getElementById('lblBase').innerText=val+'px'; }
+    if(type==='width') { r.style.setProperty('--sidebar-width', val+'px'); document.getElementById('lblWidth').innerText=val+'px'; }
+    if(type==='zoom') { r.style.setProperty('--card-zoom', val); document.getElementById('lblZoom').innerText=val+'x'; }
+}
+
+function toggleVertical(cb) {
+    const con = document.querySelector('.layout-container');
+    con.style.flexDirection = cb.checked ? 'column' : 'row';
+    con.style.alignItems = cb.checked ? 'stretch' : 'flex-start';
+}
+
+/* SIDEBAR */
+function renderSidebar() {
+    const c = document.getElementById('categoryList');
+    c.innerHTML = '';
+    allCategories.forEach(cat => {
+        let btn = document.createElement('div');
+        btn.className = 'category-btn active';
+        btn.id = 'btn_' + cat.replace(/\W/g,'');
+        btn.innerHTML = `<span>${cat}</span><span style="font-size:0.7em;opacity:0.5">Active</span>`;
+        btn.onclick = () => toggleCat(cat);
+        c.appendChild(btn);
+    });
+}
+
+function toggleCat(cat) {
+    const btn = document.getElementById('btn_' + cat.replace(/\W/g,''));
+    if(activeCategories.has(cat)) {
+        activeCategories.delete(cat);
+        btn.classList.remove('active');
+        btn.innerHTML = `<span>${cat}</span><span style="font-size:0.7em;opacity:0.5">Inactive</span>`;
+    } else {
+        activeCategories.add(cat);
+        btn.classList.add('active');
+        btn.innerHTML = `<span>${cat}</span><span style="font-size:0.7em;opacity:0.5">Active</span>`;
+    }
+}
+
+function toggleAll() {
+    const all = activeCategories.size === allCategories.length;
+    allCategories.forEach(cat => {
+        const btn = document.getElementById('btn_' + cat.replace(/\W/g,''));
+        if(all) {
+            activeCategories.delete(cat);
+            btn.classList.remove('active');
+            btn.innerHTML = `<span>${cat}</span><span style="font-size:0.7em;opacity:0.5">Inactive</span>`;
+        } else {
+            activeCategories.add(cat);
+            btn.classList.add('active');
+            btn.innerHTML = `<span>${cat}</span><span style="font-size:0.7em;opacity:0.5">Active</span>`;
+        }
+    });
+}
+
+/* DASHBOARD */
+function resetDashboard() {
+    deptHealth = {};
+    allCategories.forEach(c => deptHealth[c]=100);
+    renderDashboard();
+}
+
+function renderDashboard() {
+    const list = document.getElementById('dashboardList');
+    list.innerHTML = '';
+    let total=0, count=0;
+    
+    allCategories.forEach(cat => {
+        const val = deptHealth[cat];
+        total+=val; count++;
+        let color = val<40 ? 'var(--danger)' : (val<70 ? 'var(--accent)' : 'var(--success)');
+        
+        let row = document.createElement('div');
+        row.className = 'dept-health-row';
+        row.innerHTML = `<span>${cat}</span><div style="display:flex;align-items:center;"><span style="font-weight:bold;color:${color};margin-right:5px;">${val}%</span><div class="health-bar-bg"><div class="health-bar-fill" style="width:${val}%;background:${color}"></div></div></div>`;
+        list.appendChild(row);
+    });
+    
+    const avg = count ? Math.round(total/count) : 100;
+    const gt = document.getElementById('grandTotal');
+    gt.innerText = avg + "%";
+    gt.style.color = avg<50 ? 'var(--danger)' : (avg<80 ? 'var(--accent)' : 'var(--success)');
+}
+
+/* GAMEPLAY */
+function startGame() {
+    if(!activeCategories.size) return alert("Select a department.");
+    
+    const limit = parseInt(document.getElementById('cardLimitInput').value) || 10;
+    defaultTime = parseInt(document.getElementById('timerLimitInput').value) || 300;
+    
+    resetDashboard();
+    
+    // 1. Group active scenarios by category
+    let filteredData = scenarioData.filter(i => activeCategories.has(i.cat));
+    let grouped = {};
+    filteredData.forEach(item => {
+        if(!grouped[item.cat]) grouped[item.cat] = [];
+        grouped[item.cat].push(item);
+    });
+    
+    // 2. Shuffle items within each category
+    for (let cat in grouped) {
+        for (let j = grouped[cat].length - 1; j > 0; j--) {
+            const k = Math.floor(Math.random() * (j + 1));
+            [grouped[cat][j], grouped[cat][k]] = [grouped[cat][k], grouped[cat][j]];
+        }
+    }
+
+    // 3. Round-Robin select to ensure even distribution of categories
+    let balancedDeck = [];
+    let activeCats = Object.keys(grouped);
+    
+    let catIndex = 0;
+    while(balancedDeck.length < limit && activeCats.length > 0) {
+        let cat = activeCats[catIndex % activeCats.length];
+        if (grouped[cat].length > 0) {
+            balancedDeck.push(grouped[cat].pop());
+        } else {
+            activeCats.splice(catIndex % activeCats.length, 1);
+            catIndex--; // Adjust index since we removed an element
+        }
+        catIndex++;
+    }
+
+    // 4. Final shuffle so the round-robin category pattern isn't obvious
+    for (let j = balancedDeck.length - 1; j > 0; j--) {
+        const k = Math.floor(Math.random() * (j + 1));
+        [balancedDeck[j], balancedDeck[k]] = [balancedDeck[k], balancedDeck[j]];
+    }
+
+    deck = balancedDeck;
+    
+    document.getElementById('mainBtn').innerText = "Submit & Next";
+    document.getElementById('mainBtn').onclick = nextCard;
+    document.getElementById('skipBtn').style.display = 'block';
+    document.getElementById('reportBtn').style.display = 'none'; // Hide report btn on new game start
+    document.getElementById('scoringControls').style.display = 'grid';
+    
+    nextCard();
+}
+
+function nextCard() {
+    if(currentCard) scoreCard();
+    if(!deck.length) return endGame();
+    
+    currentCard = deck.pop();
+    showCard(currentCard);
+    
+    // Auto Start
+    resetTimer();
+    if(document.getElementById('autoStartInput').checked) startTimer();
+}
+
+function skipCard() {
+    if(!deck.length) return endGame();
+    currentCard = deck.pop();
+    showCard(currentCard);
+    resetTimer();
+    if(document.getElementById('autoStartInput').checked) startTimer();
+}
+
+function showCard(card) {
+    document.getElementById('cardBadge').innerText = card.cat;
+    document.getElementById('cardText').innerText = card.text;
+    document.getElementById('lblPrimaryDept').innerText = card.cat;
+    document.getElementById('scorePrimary').value = 5;
+    document.getElementById('valPrimary').innerText = "5";
+    
+    // Collaterals
+    const grid = document.getElementById('collateralList');
+    grid.innerHTML = '';
+    allCategories.forEach(cat => {
+        if(cat === card.cat) return;
+        let btn = document.createElement('div');
+        btn.className = 'collateral-btn';
+        btn.innerText = cat;
+        btn.onclick = () => btn.classList.toggle('selected');
+        grid.appendChild(btn);
+    });
+}
+
+function scoreCard() {
+    const pScore = parseInt(document.getElementById('scorePrimary').value);
+    
+    // Primary Damage: (10 - pScore) * 3
+    const primDmg = (10 - pScore) * 3;
+    deptHealth[currentCard.cat] = Math.max(0, deptHealth[currentCard.cat] - primDmg);
+    
+    // Collateral Damage: Scales with score.
+    // If Score 10 -> 0 dmg. If Score 0 -> 15 dmg.
+    const colDmg = Math.floor((10 - pScore) * 1.5);
+
+    const cols = document.querySelectorAll('.collateral-btn.selected');
+    let colNames = [];
+    cols.forEach(b => {
+        colNames.push(b.innerText);
+        if(colDmg > 0) {
+            deptHealth[b.innerText] = Math.max(0, deptHealth[b.innerText] - colDmg);
+        }
+    });
+    
+    // Log
+    const log = document.getElementById('historyLog');
+    const entry = document.createElement('div');
+    entry.style.marginBottom = "0.5rem";
+    entry.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+    entry.style.paddingBottom = "0.5rem";
+    entry.innerHTML = `<span style="color:var(--accent); font-weight:bold;">${currentCard.cat}</span>: Score ${pScore}/10.<br><span style="font-size:0.9em; font-style:italic;">"${currentCard.text}"</span>${colNames.length ? '<br><span style="font-size:0.9em;color:#fc8181">Affected: '+colNames.join(', ')+'</span>' : ''}`;
+    log.prepend(entry);
+    
+    renderDashboard();
+}
+
+function endGame() {
+    document.getElementById('cardText').innerHTML = "<b>Exercise Complete</b>";
+    document.getElementById('cardBadge').innerText = "Finish";
+    document.getElementById('scoringControls').style.display = 'none';
+    document.getElementById('mainBtn').style.display = 'none';
+    document.getElementById('skipBtn').style.display = 'none';
+    document.getElementById('reportBtn').style.display = 'block'; // Show download button
+    clearInterval(timerInterval);
+}
+
+function downloadReport() {
+    let logContent = document.getElementById('historyLog').innerText;
+    let finalScores = document.getElementById('dashboardList').innerText;
+    let grandTotal = document.getElementById('grandTotal').innerText;
+
+    let reportText = "EMERGENCY RESPONSE EXERCISE REPORT\n\n";
+    reportText += "======================\n";
+    reportText += " FINAL CAMPUS HEALTH  \n";
+    reportText += "======================\n";
+    reportText += `Grand Total: ${grandTotal}\n\n`;
+    
+    // Cleanup dashboard list formatting slightly for plain text
+    reportText += finalScores.replace(/\n\n/g, '\n') + "\n\n"; 
+    
+    reportText += "======================\n";
+    reportText += " INCIDENT LOG         \n";
+    reportText += "======================\n";
+    reportText += logContent;
+
+    let blob = new Blob([reportText], { type: 'text/plain' });
+    let link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Incident_Report_${new Date().toISOString().slice(0,10)}.txt`;
+    link.click();
+}
+
+/* TIMER */
+let timeLeft = 300;
+function startTimer() {
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        if(timeLeft <= 0) { triggerAlarm(); return; }
+        timeLeft--; updateTimer();
+    }, 1000);
+}
+function resetTimer() {
+    clearInterval(timerInterval);
+    timeLeft = defaultTime;
+    document.getElementById('gameCard').classList.remove('alarm-active');
+    document.getElementById('alarmOverlay').style.display = 'none';
+    document.getElementById('timerBox').style.borderColor = 'var(--danger)';
+    document.getElementById('timerDisplay').style.color = 'var(--danger)';
+    updateTimer();
+}
+function updateTimer() {
+    const m = Math.floor(timeLeft/60).toString().padStart(2,'0');
+    const s = (timeLeft%60).toString().padStart(2,'0');
+    document.getElementById('timerDisplay').innerText = `${m}:${s}`;
+}
+function triggerAlarm() {
+    clearInterval(timerInterval);
+    document.getElementById('gameCard').classList.add('alarm-active');
+    document.getElementById('alarmOverlay').style.display = 'block';
+}
+</script>
+</body>
+</html>

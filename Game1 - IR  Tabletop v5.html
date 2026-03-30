@@ -1,0 +1,1714 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Game 1 - Incident Response Command Center</title>
+<style>
+:root{
+    --bg:#07111f;
+    --bg-alt:#0c1728;
+    --panel:#0f1b2d;
+    --panel-strong:#15243a;
+    --line:#28425e;
+    --text:#e6eef8;
+    --muted:#98abc3;
+    --accent:#59c3ff;
+    --accent-2:#f4b860;
+    --good:#35d48a;
+    --bad:#ff6f61;
+    --warn:#ffd166;
+    --identify:#4688ff;
+    --protect:#2fc57b;
+    --detect:#f4b860;
+    --respond:#ff7a59;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+    font-family:"Trebuchet MS","Segoe UI Variable","Gill Sans",sans-serif;
+    color:var(--text);
+    background:
+        radial-gradient(circle at top left, rgba(89,195,255,.18), transparent 26%),
+        radial-gradient(circle at top right, rgba(244,184,96,.14), transparent 24%),
+        linear-gradient(180deg, #08111e 0%, #0a1524 40%, #08101b 100%);
+    transition:background 0.5s ease;
+}
+body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    background-image:
+        linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+    background-size:32px 32px;
+    mask-image:linear-gradient(180deg, rgba(0,0,0,.6), transparent);
+    pointer-events:none;
+}
+.flash-win{animation:flashWin 1s 3; background:#114b35 !important;}
+.flash-lose{animation:flashLose 1s 3; background:#5b1515 !important;}
+@keyframes flashWin{0%,100%{background:#145c3f;}50%{background:#08111e;}}
+@keyframes flashLose{0%,100%{background:#7a1717;}50%{background:#08111e;}}
+.app-shell{position:relative;z-index:1;padding:18px;min-height:100vh}
+.topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    padding:18px 22px;
+    border:1px solid rgba(137,173,216,.18);
+    border-radius:24px;
+    background:rgba(9,17,30,.88);
+    backdrop-filter:blur(10px);
+    box-shadow:0 24px 80px rgba(0,0,0,.28);
+}
+.title-wrap h1{
+    margin:6px 0 10px;
+    font-family:Georgia,"Palatino Linotype",serif;
+    font-size:clamp(1.8rem, 3vw, 2.8rem);
+    letter-spacing:.02em;
+}
+.eyebrow{
+    color:var(--accent);
+    text-transform:uppercase;
+    letter-spacing:.24em;
+    font-size:.72rem;
+    font-weight:700;
+}
+.subtitle{
+    margin:0;
+    max-width:760px;
+    color:var(--muted);
+    line-height:1.5;
+}
+.top-stats{
+    display:grid;
+    grid-template-columns:repeat(4, minmax(120px, 1fr));
+    gap:12px;
+    flex:1;
+    max-width:760px;
+}
+.stat-pill{
+    padding:14px 16px;
+    border-radius:18px;
+    background:linear-gradient(180deg, rgba(19,34,55,.95), rgba(11,22,37,.95));
+    border:1px solid rgba(137,173,216,.16);
+}
+.stat-pill .label{
+    display:block;
+    color:var(--muted);
+    font-size:.76rem;
+    text-transform:uppercase;
+    letter-spacing:.16em;
+    margin-bottom:6px;
+}
+.stat-pill strong{
+    display:block;
+    font-size:1.55rem;
+    line-height:1.1;
+}
+.top-actions{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:10px;
+}
+.layout{
+    display:grid;
+    grid-template-columns:minmax(260px, 300px) minmax(0, 1fr) minmax(320px, 420px);
+    gap:18px;
+    margin-top:18px;
+    align-items:start;
+}
+.sidebar,.center-stage,#right{display:flex;flex-direction:column;gap:18px}
+.panel{
+    border-radius:24px;
+    background:linear-gradient(180deg, rgba(14,27,45,.96), rgba(10,18,31,.96));
+    border:1px solid rgba(137,173,216,.14);
+    padding:18px;
+    box-shadow:0 18px 50px rgba(0,0,0,.24);
+}
+.panel h2,.panel h3,.panel h4{margin:0}
+.phase-gameplay{display:block}
+.phase-hotwash{display:none}
+body[data-phase="phase1"] .topbar{align-items:center}
+body[data-phase="phase1"] .title-wrap .subtitle,
+body[data-phase="phase1"] .phase-gameplay,
+body[data-phase="phase1"] #newGame,
+body[data-phase="phase1"] #right,
+body[data-phase="phase1"] #toolsPanel,
+body[data-phase="phase1"] #timelinePanel,
+body[data-phase="phase1"] #scoreStat,
+body[data-phase="phase1"] #roundStat,
+body[data-phase="phase1"] #hitsStat{
+    display:none !important;
+}
+body[data-phase="phase1"] .layout{
+    grid-template-columns:minmax(280px, 330px) minmax(0, 1fr);
+}
+body[data-phase="phase1"] .top-stats{
+    max-width:180px;
+    grid-template-columns:minmax(150px, 180px);
+}
+body[data-phase="phase1"] .top-actions{justify-content:center}
+body[data-phase="phase2"] .phase-hotwash,
+body[data-phase="phase1"] .phase-hotwash{
+    display:none !important;
+}
+body[data-phase="phase2"] #newGame{
+    display:none !important;
+}
+body[data-phase="phase3"] .phase-hotwash{
+    display:block;
+}
+body[data-phase="phase3"] .phase-gameplay{
+    opacity:.7;
+}
+#phaseBadge{
+    margin-top:8px;
+    font-family:Georgia,"Palatino Linotype",serif;
+    font-size:1.5rem;
+}
+#note{
+    margin:10px 0 0;
+    color:#c6d7eb;
+    line-height:1.5;
+}
+.mission-meters{display:grid;gap:14px;margin-top:18px}
+.meter-row{display:grid;gap:6px}
+.meter-meta{display:flex;justify-content:space-between;color:var(--muted);font-size:.88rem}
+.meter-track{
+    width:100%;
+    height:10px;
+    border-radius:999px;
+    background:#08121f;
+    overflow:hidden;
+    border:1px solid rgba(137,173,216,.1);
+}
+.meter-fill{
+    height:100%;
+    border-radius:inherit;
+    background:linear-gradient(90deg, var(--accent), var(--good));
+    transition:width .25s ease;
+}
+.loadout-list,.feed-list{display:grid;gap:10px;margin-top:16px}
+.loadout-item,.feed-item,.log-item,.impact-item,.summary-stat{
+    border:1px solid rgba(137,173,216,.12);
+    background:rgba(8,16,28,.72);
+    border-radius:16px;
+    padding:12px 14px;
+}
+.loadout-item{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    align-items:center;
+}
+.loadout-item strong,.impact-item strong{font-size:.95rem}
+.loadout-item span,.feed-item span,.muted{color:var(--muted)}
+.round-track{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px}
+.round-node{
+    text-align:center;
+    padding:10px 6px;
+    border-radius:14px;
+    background:rgba(8,16,28,.6);
+    border:1px solid rgba(137,173,216,.12);
+    color:var(--muted);
+    font-size:.8rem;
+}
+.round-node.active{border-color:rgba(89,195,255,.55);color:var(--text);box-shadow:0 0 0 1px rgba(89,195,255,.2) inset}
+.round-node.done{border-color:rgba(53,212,138,.35);color:var(--good)}
+.round-node.failed{border-color:rgba(255,111,97,.35);color:var(--bad)}
+.control-toolbar{
+    display:flex;
+    justify-content:space-between;
+    gap:16px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin-bottom:16px;
+}
+.slider-group{display:flex;align-items:center;gap:10px;color:var(--muted)}
+input[type="range"]{accent-color:var(--accent)}
+input[type="number"]{
+    width:56px;
+    padding:7px 8px;
+    background:#09131f;
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:10px;
+}
+button{
+    background:linear-gradient(135deg, #2d8cff, #1864d8);
+    color:white;
+    border:none;
+    padding:12px 18px;
+    border-radius:14px;
+    font-size:.95rem;
+    font-weight:700;
+    cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+    box-shadow:0 12px 28px rgba(19,89,198,.22);
+}
+button:hover:not(:disabled){transform:translateY(-1px)}
+button:disabled{background:#4b6079;box-shadow:none;cursor:not-allowed;opacity:.75}
+.secondary-btn{background:linear-gradient(135deg, #415a77, #26364a)}
+.success-btn{background:linear-gradient(135deg, #1ea96c, #14774b)}
+#board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.category-block{
+    border-radius:22px;
+    padding:16px;
+    background:linear-gradient(180deg, rgba(13,26,43,.96), rgba(8,15,25,.96));
+    border:1px solid rgba(137,173,216,.12);
+    min-height:430px;
+    display:flex;
+    flex-direction:column;
+}
+.category-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+    margin-bottom:14px;
+}
+.category-header p{margin:6px 0 0;color:var(--muted);font-size:.92rem}
+.category-chip{
+    padding:8px 12px;
+    border-radius:999px;
+    font-size:.8rem;
+    font-weight:700;
+}
+.chip-identify{background:rgba(70,136,255,.18);color:#a8c4ff}
+.chip-protect{background:rgba(47,197,123,.18);color:#9ef0c4}
+.chip-detect{background:rgba(244,184,96,.18);color:#ffe0ac}
+.chip-respond{background:rgba(255,122,89,.18);color:#ffc0b2}
+.deck-controls{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin:0 0 12px;
+}
+.deck-nav{
+    display:flex;
+    gap:8px;
+}
+.deck-nav button{
+    padding:8px 12px;
+    border-radius:10px;
+    font-size:.82rem;
+}
+.deck-counter{
+    color:var(--muted);
+    font-size:.82rem;
+    white-space:nowrap;
+}
+.deck-stage{
+    position:relative;
+    flex:1;
+    display:flex;
+    align-items:stretch;
+}
+.deck-shadow,
+.deck-shadow-two{
+    position:absolute;
+    inset:16px 14px -16px 14px;
+    border-radius:20px;
+    background:linear-gradient(180deg, rgba(19,36,58,.35), rgba(9,17,29,.42));
+    border:1px solid rgba(137,173,216,.08);
+    pointer-events:none;
+}
+.deck-shadow-two{
+    inset:28px 24px -28px 24px;
+    opacity:.6;
+}
+.card{
+    width:100%;
+    min-height:260px;
+    padding:18px;
+    border-radius:20px;
+    border:1px solid rgba(137,173,216,.12);
+    background:
+        linear-gradient(180deg, rgba(19,36,58,.94), rgba(9,17,29,.96)),
+        linear-gradient(135deg, rgba(255,255,255,.08), transparent 48%);
+    cursor:pointer;
+    transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease, opacity .18s ease;
+    position:relative;
+    overflow:hidden;
+    z-index:2;
+}
+.card::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(135deg, rgba(255,255,255,.08), transparent 38%);
+    opacity:.6;
+    pointer-events:none;
+}
+.card:hover{transform:translateY(-2px);border-color:rgba(89,195,255,.45);box-shadow:0 16px 36px rgba(0,0,0,.24)}
+.card.selected{border-color:rgba(53,212,138,.6);box-shadow:0 0 0 1px rgba(53,212,138,.2) inset}
+.card.greyed{opacity:.4;cursor:default}
+.card-header{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    align-items:flex-start;
+    margin-bottom:14px;
+}
+.card-tag,.coverage-tag{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:.74rem;
+    font-weight:700;
+}
+.card-tag{background:rgba(255,255,255,.08)}
+.coverage-tag{background:rgba(89,195,255,.12);color:#b6e7ff}
+.header-identify{background:rgba(70,136,255,.16);color:#a8c4ff}
+.header-protect{background:rgba(47,197,123,.16);color:#9ef0c4}
+.header-detect{background:rgba(244,184,96,.16);color:#ffe0ac}
+.header-respond{background:rgba(255,122,89,.16);color:#ffc0b2}
+.card h3{margin:0 0 8px;font-size:1.05rem}
+.card p{margin:0;line-height:1.55;color:#dbe7f4}
+.desc{display:block;transition:all .25s ease}
+.card.hide-desc .desc{display:none}
+.card.expand-desc .desc{display:block}
+.card-footer{
+    margin-top:16px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    color:var(--muted);
+    font-size:.86rem;
+}
+.cost{font-weight:700;color:var(--accent-2)}
+.card-meta-list{
+    display:grid;
+    gap:8px;
+    margin-top:14px;
+}
+.card-meta{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    color:var(--muted);
+    font-size:.82rem;
+}
+.card-stack-note{
+    margin-top:12px;
+    color:var(--muted);
+    font-size:.8rem;
+}
+.status-pill{
+    padding:6px 10px;
+    border-radius:999px;
+    background:rgba(255,255,255,.08);
+}
+.green{color:var(--good);font-weight:700}
+.red{color:var(--bad);font-weight:700}
+.yellow{color:var(--warn);font-weight:700}
+#right{display:none}
+.score-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:12px;
+}
+#scoreBox,.mini-score{
+    padding:16px;
+    border-radius:18px;
+    background:rgba(8,16,28,.75);
+    border:1px solid rgba(137,173,216,.14);
+}
+#scoreLabel,.mini-score .label{
+    display:block;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.16em;
+    font-size:.76rem;
+    margin-bottom:8px;
+}
+#score{
+    display:block;
+    font-size:3rem;
+    font-weight:800;
+    line-height:1;
+}
+.mini-score strong{font-size:1.35rem}
+.inject-actions{display:flex;gap:10px;flex-wrap:wrap}
+#injectBox{
+    min-height:260px;
+    padding:20px;
+    border-radius:22px;
+    background:
+        radial-gradient(circle at top right, rgba(255,122,89,.12), transparent 35%),
+        rgba(8,16,28,.82);
+    border:1px solid rgba(137,173,216,.14);
+    line-height:1.6;
+}
+.inject-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.inject-header h3{font-family:Georgia,"Palatino Linotype",serif;font-size:1.4rem;margin:0}
+.inject-sub{color:var(--muted);margin-top:4px}
+.impact-list{display:grid;gap:10px;margin:18px 0}
+.impact-item{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.impact-item.protected{border-color:rgba(53,212,138,.35)}
+.impact-item.unprotected{border-color:rgba(255,111,97,.35)}
+.impact-item small{display:block;color:var(--muted);margin-top:6px}
+#incidentLog{
+    max-height:320px;
+    overflow-y:auto;
+    font-size:14px;
+    display:grid;
+    gap:10px;
+}
+.log-item strong{display:block;margin-bottom:4px}
+#summaryBox{
+    background:rgba(8,16,28,.85);
+    padding:22px;
+    border-radius:22px;
+    display:none;
+    line-height:1.7;
+    border:1px solid rgba(137,173,216,.14);
+}
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+.summary-stat strong{display:block;font-size:1.45rem}
+.timer-buttons{display:flex;justify-content:center;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.helper-copy{font-size:.88rem;color:var(--muted);line-height:1.5}
+#newGame{display:none}
+@media (max-width:1200px){
+    .layout{grid-template-columns:1fr}
+    .topbar{flex-direction:column}
+    .top-actions{align-items:stretch;width:100%}
+    .top-stats{max-width:none;width:100%}
+}
+@media (max-width:900px){
+    #board{grid-template-columns:1fr}
+    body[data-phase="phase1"] .layout{grid-template-columns:1fr}
+}
+@media (max-width:700px){
+    .app-shell{padding:12px}
+    .top-stats,.score-grid,.summary-grid{grid-template-columns:1fr 1fr}
+}
+@media (max-width:520px){
+    .top-stats,.score-grid,.summary-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+<header class="topbar">
+    <div class="title-wrap">
+        <div class="eyebrow">Game 1 / Cyber Incident Tabletop</div>
+        <h1>Incident Response Command Center</h1>
+        <p class="subtitle">Build your defenses, lock in your spend, then survive a five-round cyber crisis campaign with live injects, threat tracking, and a final hotwash.</p>
+    </div>
+    <div class="top-stats">
+        <div class="stat-pill" id="budgetStat">
+            <span class="label">Budget</span>
+            <strong id="wallet">$500,000</strong>
+        </div>
+        <div class="stat-pill phase-gameplay" id="scoreStat">
+            <span class="label">Resilience Score</span>
+            <strong id="headerScore">65</strong>
+        </div>
+        <div class="stat-pill phase-gameplay" id="roundStat">
+            <span class="label">Round</span>
+            <strong id="headerRound">0 / 5</strong>
+        </div>
+        <div class="stat-pill phase-gameplay" id="hitsStat">
+            <span class="label">Critical Hits</span>
+            <strong id="headerHits">0</strong>
+        </div>
+    </div>
+    <div class="top-actions">
+        <button id="startGame" disabled>Lock Loadout & Start</button>
+        <button id="newGame" class="secondary-btn">Reset Scenario</button>
+    </div>
+</header>
+
+<div class="layout">
+    <aside class="sidebar">
+        <section class="panel" id="missionPanel">
+            <div class="eyebrow">Mission Brief</div>
+            <h2 id="phaseBadge">Procurement Phase</h2>
+            <p id="note">Choose your protection cards. You need at least one control from every NIST-inspired category before the exercise can begin.</p>
+
+            <div class="mission-meters">
+                <div class="meter-row">
+                    <div class="meter-meta">
+                        <span>Control Coverage</span>
+                        <strong id="preparednessValue">0%</strong>
+                    </div>
+                    <div class="meter-track"><div id="preparednessFill" class="meter-fill" style="width:0%"></div></div>
+                </div>
+                <div class="meter-row">
+                    <div class="meter-meta">
+                        <span>Budget Committed</span>
+                        <strong id="budgetSpendValue">0%</strong>
+                    </div>
+                    <div class="meter-track"><div id="budgetSpendFill" class="meter-fill" style="width:0%;background:linear-gradient(90deg,var(--accent-2),var(--bad))"></div></div>
+                </div>
+            </div>
+
+            <div class="loadout-list" id="selectedLoadout"></div>
+        </section>
+
+        <section class="panel phase-gameplay" id="toolsPanel">
+            <div class="eyebrow">Facilitator Tools</div>
+            <h3 style="margin-top:8px;">Discussion Timer</h3>
+            <p class="helper-copy">Use this to keep each department discussion moving. Set the minutes, then start when the inject appears.</p>
+            <div id="discussion-timer" style="margin-top:16px;">
+                <div style="text-align:center;color:var(--warn);font-size:2.6rem;font-weight:800;font-family:Consolas,monospace;" id="timer-display">05:00</div>
+                <div class="timer-buttons">
+                    <input type="number" id="mins-input" value="5" min="1">
+                    <button id="timer-set" class="secondary-btn">Set</button>
+                    <button id="timer-start" class="success-btn">Start Timer</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel phase-gameplay" id="timelinePanel">
+            <div class="eyebrow">Campaign Timeline</div>
+            <div id="roundTrack" class="round-track"></div>
+            <div class="feed-list" id="threatFeed"></div>
+        </section>
+    </aside>
+
+    <main class="center-stage">
+        <section class="panel">
+            <div class="control-toolbar">
+                <div>
+                    <div class="eyebrow" id="boardEyebrow">Defense Marketplace</div>
+                    <h3 style="margin-top:8px;" id="boardTitle">Select your controls</h3>
+                    <p class="helper-copy" id="boardHelper">Each card buys capability. During the exercise, selected controls become your active loadout and unselected controls become lessons learned.</p>
+                </div>
+                <div class="slider-group">
+                    <label for="zoomSlider">Card Zoom</label>
+                    <input type="range" id="zoomSlider" min="0.8" max="1.8" step="0.05" value="1">
+                </div>
+            </div>
+            <div id="board"></div>
+        </section>
+    </main>
+
+    <aside id="right">
+        <section class="panel phase-gameplay">
+            <div class="eyebrow">Live Operations</div>
+            <div id="fontControls" style="display:none; margin-top:12px;">
+                <div class="slider-group">
+                    <label for="fontSlider">Briefing Text</label>
+                    <input type="range" id="fontSlider" min="12" max="22" step="1" value="14">
+                </div>
+            </div>
+            <div class="score-grid" style="margin-top:16px;">
+                <div id="scoreBox">
+                    <span id="scoreLabel">Current Score</span>
+                    <span id="score">65</span>
+                </div>
+                <div class="mini-score">
+                    <span class="label">Status</span>
+                    <strong id="scoreStatus">Standing By</strong>
+                </div>
+            </div>
+            <div class="inject-actions" style="margin-top:14px;">
+                <button id="drawInject">Draw Next Inject</button>
+            </div>
+            <div id="injectBox">
+                <div class="muted">No inject drawn yet. Once the game starts, each round will appear here with impact details, mitigations, and discussion prompts.</div>
+            </div>
+        </section>
+
+        <section class="panel phase-gameplay">
+            <div class="eyebrow">After Action Trail</div>
+            <h3 style="margin-top:8px;">Incident Response Worksheet</h3>
+            <div id="incidentLog"></div>
+        </section>
+
+        <section class="panel phase-hotwash" id="hotwashPanel">
+            <div class="eyebrow">Hotwash</div>
+            <div id="summaryBox"></div>
+        </section>
+    </aside>
+</div>
+</div>
+
+
+<script>
+let wallet,score,round,criticalHits,locked,gameOver,maxRounds,currentRound,logEntries,categoryViewIndex,gamePhase;
+let cardsData,injects,injectDeck;
+const categories=["Identify","Protect","Detect","Respond"];
+const categoryDescriptions={
+    Identify:"Map assets, ownership, risk, and staff awareness before a crisis begins.",
+    Protect:"Harden systems and users to reduce the blast radius of an incident.",
+    Detect:"Catch suspicious activity early enough to change the outcome.",
+    Respond:"Recover operations, coordinate communication, and keep the business moving."
+};
+
+// Timer Logic
+let timerInterval;
+
+const display = document.getElementById('timer-display');
+const input = document.getElementById('mins-input');
+const setBtn = document.getElementById('timer-set');
+const startBtn = document.getElementById('timer-start');
+
+// Update the display without starting the clock
+setBtn.onclick = () => {
+    clearInterval(timerInterval);
+    const mins = parseInt(input.value) || 5;
+    display.textContent = `${mins.toString().padStart(2, '0')}:00`;
+    display.style.color = "#fbbf24"; 
+};
+
+// Start the countdown only when clicked
+startBtn.onclick = () => {
+    clearInterval(timerInterval);
+    
+    // Get current time from display
+    let parts = display.textContent.split(':');
+    let totalSeconds = (parseInt(parts[0]) * 60) + parseInt(parts[1]);
+
+    if (totalSeconds <= 0) return;
+
+    timerInterval = setInterval(() => {
+        totalSeconds--;
+        
+        let m = Math.floor(totalSeconds / 60);
+        let s = totalSeconds % 60;
+        display.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+        if (totalSeconds <= 0) {
+            clearInterval(timerInterval);
+            display.style.color = "#ef4444"; // Red for "Time's Up"
+            // Optional: Play a subtle alert sound here
+        }
+    }, 1000);
+};
+
+// Selectable cards
+cardsData=[
+{title:"Employee Training",category:"Identify",cost:35000,desc:"Educates staff on social engineering and suspicious activity reporting including physical incidents."},
+{title:"Emergency Procedures",category:"Identify",cost:30000,desc:"Clear escalation and verification steps for fraud or suspicious requests.  This includes having a way to report suspicious emails and having a verification process for password, Payroll, and MFA Changes."},
+{title:"Asset Inventory",category:"Identify",cost:25000,desc:"Comprehensive list of critical systems and data assets.  This is number 1 on the NIST Cyber Security Framework.  Knowing what you have and where it is extremely important.  If an unknown device shows up in your system, or If a laptop goes missing, how you would you find out where it went and who it belongs to?"},
+{title:"Risk Assessment",category:"Identify",cost:40000,desc:"Identify and prioritize cyber risks across the organization.  This includes having regular 3rd Party Penetration Tests and Developing Acceptable Risk Standards."},
+{title:"Phishing Campaigns",category:"Identify",cost:25000,desc:"Simulated phishing tests to evaluate user readiness.  This increases awareness of what a suspicious email looks like and can prevent data loss, Ransomware and Hundreds of hours of downtime."},
+{title:"Firewall",category:"Protect",cost:75000,desc:"Filters Network traffic at network boundaries.  This is what is used to try and establish communication rules between sites and devices."},
+{title:"Antivirus",category:"Protect",cost:50000,desc:"Attempts to Detect and block malware before it executes. The average Antivirus or A/V takes around a minute to catch a suspicious execution.  Even if your A/V does catch it, it may not remediate everything that is done in that minute it takes to detect and quarantine the files."},
+{title:"Multi-factor Auth",category:"Protect",cost:90000,desc:"Known as MFA, this Adds an extra security layer to user logins.  This includes things like 1 Time Passcodes (OTP) or a message (Push) or alert sent to a persons device to verify you are trying to log in. "},
+{title:"Encryption",category:"Protect",cost:85000,desc:"Protects sensitive data at rest and in transit.  Being able to encrypt your Privilaged Data as it is going across your network can prevent your data from being sniffed as its going across your network. This can be especially important with your Backups."},
+{title:"Patch Management",category:"Protect",cost:60000,desc:"Timely installation of security patches to prevent exploits.  Having a way to push security updates known as Patches is key to try and prevent known bugs and Critical Vulnerabilities and Exposures (CVE) on your Network."},
+{title:"SIEM Monitoring",category:"Detect",cost:100000,desc:"Centralized alerting for suspicious security events.  A (Security Information and Event Management) System is an expensive, but crucial for asissting in detecting anomalies and suspicious actions on your network."},
+{title:"User Activity Logs",category:"Detect",cost:30000,desc:"Monitoring of user behavior to detect anomalies. This usually entails purchasing sofware to alert you of any anomalies in user logins, or users logging in a suspious times or from locations not typical of your organization."},
+{title:"IDS",category:"Detect",cost:80000,desc:"Detects unauthorized network activity or intrusions.  An Intrusion Detection System or (IDS) is sometimes part of your overall security suite.  This is specifically designed to detect unauthorized activity."},
+{title:"Endpoint Detection",category:"Detect",cost:60000,desc:"Monitors endpoints for malware and suspicious behavior.  This can be included in your Antivirus purchase, but isnt always included.  This can also sometimes contain features that allow you to limit what kind of software can be installed."},
+{title:"Threat Intelligence",category:"Detect",cost:40000,desc:"External threat information to inform security decisions.  This information typically comes from a 3rd party System Operation Center (SOC) or Network Operations Center (NOC) monitoring your network. This information could even come from a Educational Network Provider (*EN) or Internet Service Provider (ISP). "},
+{title:"Incident Response Team",category:"Respond",cost:100000,desc:"Dedicated team to manage and respond to incidents.  Most companies do not have this.  Instead they have 3rd party vendors they will interact with in case of an event, or in some cases, your Cybersecurity Insurance will have an In house Team, or preferred Vendor for this."},
+{title:"Backup & Restore",category:"Respond",cost:60000,desc:"The ability to Recover systems after data loss or attacks.  Having both an Onsite and Offsite backup solution is critical to maintain business operations.  These are often expensive and difficult to maintain, but can take the amount of time to recover from > 6 months, to just weeks."},
+{title:"Disaster Recovery Plan",category:"Respond",cost:80000,desc:"Plan to restore operations after major incidents.  Disaster recovery plans arent just an IT problem.  There are many pieces to the puzzle and your whole organization needs to be involved.  PR, Emergency Communication, and even how to let staff securely in and out of your locatitons can be challenging in the event of an outage."},
+{title:"Communications Plan",category:"Respond",cost:40000,desc:"Control internal and external messaging during incidents.  This is an important piece in your Disaster recovery plan that is often overlooked.   How and Who can communicate to Staff, The Public or Press in the event of an outage is challenging when critical systems are impacted."},
+{title:"Legal & Compliance",category:"Respond",cost:50000,desc:"Ensure regulatory and legal requirements are met.  This includes, but not limited to: Notification laws, Data Privacy Agreements (DPA), and compliance with the Privacy acts such as:  HIPAA, FERPA etc."}
+];
+
+// 30 unique inject cards
+
+injects=[
+
+/* =========================
+   NEW INJECT CARDS
+   ========================= */
+
+
+{
+event: "Living-off-the-Land (LotL) PowerShell Attack",
+description: "An attacker uses legitimate Windows tools (PowerShell and WMI) to move laterally through your network.",
+impacts: [
+{text: "Lateral movement across network â€“ $75,000", mitigatedBy: "IDS"},
+{text: "Malware-less persistence established â€“ $45,000", mitigatedBy: "Endpoint Detection"}
+],
+stats: "60% of modern attacks now use 'LotL' techniques, where no actual malware files are ever saved to the disk.",
+remediation: "Enforce PowerShell Constrained Language Mode and use Endpoint Detection (EDR) to monitor for suspicious process parenting."
+},
+
+
+{
+event:"Phishing Whaling Attack",
+description:"An email from a bad actor impersonating a high ranking administrator is received.  Requesting an urgent payroll transfer due to a recent bank account change. Payroll processes this change.",
+impacts:[
+{text:"Payroll funds misdirected â€“ $35,000", mitigatedBy:"Employee Training"},
+{text:"No verification of transfer â€“ $30,000", mitigatedBy:"Phishing Campaigns"}
+],
+stats:"Phishing attacks cost US businesses $17B annually. Approximately 30% of employees click phishing links without training.",
+remediation:"Conduct employee phishing simulations and implement strict verification for anything relating to password changes, MFA Resets, Change in bank information, Paying Invoices and Wire transfers. Do you require these types of changes to be in person?"
+},
+
+
+
+{
+event:"Internet Service Outage",
+description:"A neighboring business has a sprinkler line put in and accidently cuts your connection to your ISP, taking your internet down for 3 days.",
+impacts:[
+{text:"Business operations disrupted â€“ $50,000", mitigatedBy:"Disaster Recovery Plan"},
+{text:"Unable to communicate to all parties â€“ $30,000", mitigatedBy:"Communications Plan"}
+],
+stats:"Accidental outages are extremely common, and are something a good business continitunity plan would help protect against.",
+remediation:"Outages come in all shapes and sizes, and not just ransomware events.  Would your environment survive this?"
+},
+
+{
+event:"Ransomware â€“ Double Extortion",
+description:"Your Critical Authentication servers have been encrypted.  Sensitive data is exfiltrated and a heafty ransom is demanded.",
+impacts:[
+{text:"Malware executed â€“ $80,000",mitigatedBy:"Antivirus"},
+{text:"Unable to restore systems quickly â€“ $120,000",mitigatedBy:"Backup & Restore"}
+],
+stats:"Average ransomware recovery costs now exceed $5.08 Million! Aside from the 1,000's of man hours and months it can take to recover.",
+remediation:"Use layered defenses, maintain onsite and offsite backups, and test incident response plans regularly.  Are you prepared to pay?  Not to pay?  What if its medical data involving patient images?  There are many things to consider here."
+},
+
+
+
+{
+event:"Insider Threat â€“ Data Exfiltration",
+description:"An Employee downloads confidential data and uploads it to their personal cloud storage because they said it was easier to use.  Internal documents have been leaked to the news.",
+impacts:[
+{text:"Intellectual property loss â€“ $70,000",mitigatedBy:"User Activity Logs"},
+{text:"Business strategy exposure â€“ $35,000",mitigatedBy:"SIEM Monitoring"}
+],
+stats:"Insider threats cause over $8.76M in losses per year.",
+remediation:"Monitor user behavior and enforce least privilege.  Google and Microsoft both have tools to monitor both intentional and unintentional possible data exfil."
+},
+
+
+
+{
+event:"Malware via USB Drop",
+description:"An infected USB drive is placed in the parking lot of your organization.  A staff member is curious and plugs it into their workstation.  Malware quickly spreads through your network.",
+impacts:[
+{text:"Malware infection â€“ $25,000",mitigatedBy:"Antivirus"},
+{text:"Lateral movement risk â€“ $20,000",mitigatedBy:"Patch Management"}
+],
+stats:"With new techniques being implemented all the time, USB-based malware still remains a common infection vector.  Many attackers will spend over a year trying to get into a target company.  Its much easier to drop a flash drive or send a phishing email to get the Information they need to attack than it is to attack externally",
+remediation:"Educate staff and use endpoint protection."
+},
+
+
+
+{
+event:"Web Application Exploit",
+description:"Your Employee web portal was not updated to the lastet security standards.  An attacker used SQL injection to gain access to your employee information database and customer portal.",
+impacts:[
+{text:"Customer data exfiltrated â€“ $55,000",mitigatedBy:"Patch Management"},
+{text:"Loss of trust â€“ $20,000",mitigatedBy:"Encryption"}
+],
+stats:"Web application attacks are the top method for data breaches.  It can take teams of people years to fully secure a site with new Vulnerabilities coming out every day.",
+remediation:"Patch systems and conduct penetration testing.  OWASP Juice Shop has some good tutorials on Injection attacks."
+},
+
+
+{
+event: "MFA Fatigue / Push Bombing",
+description: "During a major update, An attacker with a stolen password sends hundreds of MFA push notifications to a sysadmin. Thinking it was part of the update process, the admin clicks 'Approve'.",
+impacts: [
+{text: "Administrative account compromise â€“ $100,000", mitigatedBy: "Employee Training"},
+{text: "Infrastructure access â€“ $50,000", mitigatedBy: "Incident Response Team"}
+],
+stats: "Push bombing was the primary vector in the high-profile Uber and Cisco breaches in 2022.",
+remediation: "Switch from simple 'Approve/Deny' push notifications to 'MFA Number Matching', or passkeys to ensure the user is physically present at the login screen."
+},
+
+
+{
+event: "Ransomware via 'PrintNightmare' Exploit",
+description: "Attackers exploit a critical vulnerability in the Windows Print Spooler service to gain SYSTEM-level privileges and deploy ransomware network-wide.",
+impacts: [
+{text: "Privilege escalation â€“ $80,000", mitigatedBy: "Patch Management"},
+{text: "Widespread file encryption â€“ $120,000", mitigatedBy: "Antivirus"}
+],
+stats: "Critical vulnerabilities like PrintNightmare allow low-level users to become domain admins in seconds.",
+remediation: "Disable the Print Spooler service on domain controllers and ensure critical security patches are applied within a resonable time period after release."
+},
+
+{
+event: "Supply Chain Attack: Malicious Library (Log4j Anyone?)",
+description: "An internal application relies on an Open Source library that has been hijacked by a foreign threat actor. The library contains a back-door.",
+impacts: [
+{text: "Application back-door â€“ $65,000", mitigatedBy: "Threat Intelligence"},
+{text: "Data exfiltration via API â€“ $45,000", mitigatedBy: "IDS"}
+],
+stats: "Supply chain attacks (like the SolarWinds breach) are devastating because the software comes from a 'trusted' vendor.",
+remediation: "Maintain a Software Bill of Materials (SBOM) and use network segmentation to prevent apps from communicating with unknown external IPs."
+},
+
+
+{
+event: "Shadow AI / Prompt Injection",
+description: "A staff member uses an unauthorized third-party AI tool to 'summarize' confidential information. The AI tool's database is used to train a public model, exposing your confidential data.",
+impacts: [
+{text: "Intellectual property leak â€“ $75,000", mitigatedBy: "Risk Assessment"},
+{text: "Compliance violation (Data Privacy) â€“ $45,000", mitigatedBy: "Legal & Compliance"}
+],
+stats: "Shadow AI (using AI without IT approval) has overtaken other types of accidental corporate data leakage Worldwide.",
+remediation: "Establish an 'Acceptable Use Policy' for Generative AI and implement CASB (Cloud Access Security Broker) tools to block unauthorized AI domains."
+},
+
+
+{
+event: "Physical Social Engineering: 'Tailgating'",
+description: "A person dressed as a delivery driver, carrying a large box, waits by the Main entrance. A staff member holds the door open for them. The intruder places a 'Dropbox' device (a small pirate computer) behind a printer, granting them remote access to your internal network.",
+impacts: [
+{text: "Physical perimeter breach â€“ $40,000", mitigatedBy: "Employee Training"},
+{text: "Internal network backdoor â€“ $70,000", mitigatedBy: "IDS"}
+],
+stats: "Physical security is the first line of defense; a $100 device hidden inside a building can bypass a $100,000 external firewall.",
+remediation: "Conduct 'Badge-In' training and ensure that all network jacks in public-facing areas (lobbies, conference rooms) are disabled or restricted by MAC-filtering."
+},
+
+
+
+{
+event: "How was your Hawaii trip?",
+description: "A staff member unknowingly brings a family of hissing cockroaches back from vacation in their backpack. These pests have now infested the server room, and they are causing electrical arcing and shorting out of equipment.",
+impacts: [
+{text: "Hardware failure and short circuits â€“ $85,000", mitigatedBy: "Risk Assessment"},
+{text: "Network downtime and data loss â€“ $45,000", mitigatedBy: "Backup & Restore"}
+],
+stats: "Environmental threats aren't just weather-related; bio-infestations can cause permanent 'carbon tracking' on circuit boards, leading to cascading hardware failures that are often not covered by standard e-waste warranties.",
+remediation: "Immediately power down affected racks to prevent fire, engage professional pest control for deep-clean fumigation, and utilize off-site Disaster Recovery (DR) sites to maintain business continuity while hardware is replaced."
+},
+
+{
+event:"DDoS Attack",
+description:"Bad Actors flood your external facing IP's with traffic, causing your network equipment to have a memory dump error and crash.  You are currently down.",
+impacts:[
+{text:"Service downtime â€“ $35,000",mitigatedBy:"Firewall"},
+{text:"Lost revenue â€“ $25,000",mitigatedBy:"Incident Response Team"}
+],
+stats:"Average DDoS attack costs $20,000â€“$40,000 per hour of downtime.",
+remediation:"Deploy traffic filtering and response procedures.  Remember that having your device ignore traffic still has a CPU cost.  Do you have DDos prevention?"
+},
+
+
+
+
+{
+event:"Spear Phishing â€“ HR Compromise",
+description:"An email was sent to HR asking them to Verify Their Email or it will be shut off.  The Staff members put in their username and password allowing their Credentials to be sent to a bad actor.  This resulted in stolen data, exposing employee PII, and an impending ransomware attack.",
+impacts:[
+{text:"Employee PII leaked â€“ $40,000",mitigatedBy:"Employee Training"},
+{text:"Reputation damage â€“ $15,000",mitigatedBy:"Multi-factor Auth"}
+],
+stats:"Social engineering caused 36% of reported breaches in 2023.",
+remediation:"Train staff on IT procedures and enforce MFA on all accounts. This is an extremely common attack vector and millions of these types of emails are sent daily."
+},
+
+
+{
+event:"Communications outage",
+description:"AWS North american servers are down.  Your VOIP, and Email providers are expierencing an outage as a result.",
+impacts:[
+{text:"Servers are Down â€“ $60,000", mitigatedBy:"Emergency Procedures"},
+{text:"Unable to contact staff/Members â€“ $20,000", mitigatedBy:"Communications Plan"}
+],
+stats:"3rd party outages cost companies Billions in losses globally.",
+remediation:"Cyber resilance plans are important for all scenarios.  Make good generalized Disaster recovery plans.  Do you have a way to communicate if phones and email are down?"
+},
+
+
+{
+event:"Door Access Control Outage",
+description:"Targeting IOT devices, A bad actor tries to access your Facilites door access server.  The bad actor did not gain access, but the Database that holds all of your door access key card data is now corrupted.",
+impacts:[
+{text:"Access control restricted â€“ $60,000", mitigatedBy:"SIEM Monitoring"},
+{text:"Unable to access buildings â€“ $20,000", mitigatedBy:"Backup & Restore"}
+],
+stats:"Third-party and IoT-related outages contribute to billions of dollars in global business losses each year.",
+remediation:"Implement cyber resilience and disaster recovery plans, including regular backups and monitoring of physical security systems.  Do you have a way to get in and out of your buildings without keycard access?"
+},
+
+
+{
+event:"Natures Course",
+description:"An earthquake has taken out your Main Data Center.  All other business locations seem to have limited damage.",
+impacts:[
+{text:"Outage per Hour â€“ $60,000", mitigatedBy:"Emergency Procedures"},
+{text:"Unable to Contact Staff/Members or emergency personel â€“ $20,000", mitigatedBy:"Communications Plan"}
+],
+stats:"Industry surveys suggest that **90% of mid-sized and large enterprises can lose more than $300,000 in revenue per hour of downtime after a major weather event.",
+remediation:"If a major weather event or earthquake were to happen, how would your building(s) survive?  How quickly could you recover from an event like this?."
+},
+
+
+{
+event:"Lost Unencrypted Laptop",
+description:"An Employee at a conference leaves their laptop with sensitive data in their vehicle.  The laptop is missing and presumed stolen.",
+impacts:[
+{text:"Data exposure â€“ $45,000", mitigatedBy:"Encryption"},
+{text:"Asset tracking failure â€“ $20,000", mitigatedBy:"Asset Inventory"}
+],
+stats:"Lost devices are the direct cause of 15% of data breaches.",
+remediation:"Encrypt devices and track assets.  Do you have a good inventory system?  Inventory is #1 in the NIST Framework for Cybersecurity Controls.  Would you know if a laptop was missing, or who one belonged to if it was found?"
+},
+
+
+{
+event:"DNS Hijacking",
+description:"Domain records are altered to redirect web traffic from a known good website to a malicious one.  This bad shortcut is now being pushed to all staff.",
+impacts:[
+{text:"Website outage â€“ $35,000", mitigatedBy:"Threat Intelligence"},
+{text:"Delayed detection â€“ $20,000", mitigatedBy:"SIEM Monitoring"}
+],
+stats:"DNS hijacks can impact thousands of users quickly and are hard to catch.",
+remediation:"Secure DNS accounts and monitor changes."
+},
+
+
+{
+event:"Insider Sabotage",
+description:"A Disgruntled employee deletes all your Access management Data before he leaves on his last day.  ie;ise, AD, entra etc.",
+impacts:[
+{text:"Data loss â€“ $60,000", mitigatedBy:"Backup & Restore"},
+{text:"Delayed detection â€“ $30,000", mitigatedBy:"User Activity Logs"}
+],
+stats:"Insider sabotage is frequent in todays business world and can cause major operational damage and downtime if recovery systems are not put in place.",
+remediation:"Monitor behavior and enforce access controls.  Do you have a goood onboarding and offboarding process?"
+},
+
+
+{
+event:"Credential Harvesting Website",
+description:"Staff trying to download a PDF reader find themselves on a Fake login page that captures their credentials (Username and password).",
+impacts:[
+{text:"Account compromise â€“ $35,000", mitigatedBy:"Employee Training"},
+{text:"Unauthorized access â€“ $25,000", mitigatedBy:"Multi-factor Auth"}
+],
+stats:"Credential harvesting is a top phishing tactic alongside direct payroll, giftcard and money transfer schemes.",
+remediation:"Educate users and enforce MFA."
+},
+
+{
+event:"Public Wi-Fi Credential Theft",
+description:"Employee logs in to unsecured Wi-Fi that closely mimics yours, giving up that users username and password for your organization.",
+impacts:[
+{text:"Credential interception â€“ $30,000", mitigatedBy:"Multi-factor Auth"},
+{text:"Unauthorized access â€“ $20,000", mitigatedBy:"Employee Training"}
+],
+stats:"Public Wi-Fi is a high-risk environment and shouldnt be used by Employees.",
+remediation:"Train staff and enforce MFA.  With the large scale attacks in todays environment, excersise extreme caution with any Free or public wifi.  Most should never be used on company owned devices."
+},
+
+{
+event:"VPN Credential Leak",
+description:"An Admin asks for VPN access to allow them to work from home when needed.  At a conference a bad actor spots their credentials on a post it note on their laptop, allowing remote access to your environment.",
+impacts:[
+{text:"Network breach â€“ $40,000", mitigatedBy:"Multi-factor Auth"},
+{text:"Suspicious activity unnoticed â€“ $30,000", mitigatedBy:"SIEM Monitoring"}
+],
+stats:"VPN access remains a prime target.   Many compaines will allow VPN access for remote work from personal devices or improperly secured ones.",
+remediation:"Enforce MFA and monitor logins.  In General, VPN Access should only be allowed by those individuals it is strictly necessary for and not on a permananent basis.  Setting login times can also help prevent attacks."
+},
+
+
+
+/* =========================
+   UNUSED OLD INJECT CARDS
+  
+{
+event:"Violent Incident Occured",
+description:"A violent incident happend at one of your Locations, that location has been shut down and now you have to investigate and communicate what happened.",
+impacts:[
+{text:"Business operations halted â€“ $35,000", mitigatedBy:"Employee Training"},
+{text:"PR and HR did not know legal process to handle incidents â€“ $30,000", mitigatedBy:"Legal & Compliance"}
+],
+stats:"Violent Indcidents happen daily.  It's hard to prepare for every incident, but employees should have a general plan of how to handle intense situations.",
+remediation:"It is important to have plans that cover a wide variety of scenarios.  Do you have anything to prevent incidents like this in your environment? Secure Vestibules? Cameras? Onsite Security?"
+},
+
+
+
+{
+event:"A Data Breach was caused by a Misconfigured Cloud appliance",
+description:"Sensitive Employee/Customer data was exposed due to improperly configured cloud storage.  Aside from appliation misconfigurations, this can include Staff sharing Private information to others outside your organization in various Cloud Storage Platforms.",
+impacts:[
+{text:"Customer PII exposed â€“ $50,000",mitigatedBy:"Encryption"},
+{text:"Regulatory fines â€“ $25,000",mitigatedBy:"Legal & Compliance"}
+],
+stats:"Cloud misconfigurations caused 22% of breaches in 2022.",
+remediation:"Audit cloud configurations and enforce encryption standards.  Do you have a way to monitor or limit sharing of private business information?"
+},
+
+
+{
+event:"Credential Stuffing",
+description:"Leaked credentials were used to access multiple accounts.  Several staff members passwords were PASSWORD and was used as a common password across all their accounts. This was easily guessed and lead to unauthorized access to several systems via their password locker.",
+impacts:[
+{text:"Unauthorized access â€“ $30,000",mitigatedBy:"Multi-factor Auth"},
+{text:"Customer trust damage â€“ $15,000",mitigatedBy:"Employee Training"}
+],
+stats:"Credential reuse causes Billions in losses annually.",
+remediation:"Enforce MFA and Secure password hygiene.  How secure is your password policy? Do you have a way to check for default credentials? on your devices?"
+},
+
+
+{
+event:"IoT Device Compromise",
+description:"Smart devices on your network were exploited, leading to internal access. This is extremely common with with IOT devices such as Smart Thermostats and room control technology.  These are hard to secure and often do not have any method to secure or update them built in.",
+impacts:[
+{text:"Internal network exposure â€“ $50,000",mitigatedBy:"Firewall"},
+{text:"Data exfiltration â€“ $20,000",mitigatedBy:"IDS"}
+],
+stats:"IoT devices are common attack vectors due to their low security and lack of ways to secure them.",
+remediation:"Segment IoT and monitor traffic.  Do you have a way to scan for open ports and Vulnerabilities on IOT devices?"
+},
+
+
+
+
+
+{
+event:"Do you want to transfer some money?",
+description:"Attackers gain access to an administrators email, and then requests a large wire transfer to an unknown company.",
+impacts:[
+{text:"Fraudulent transfer â€“ $60,000", mitigatedBy:"Emergency Procedures"},
+{text:"Reputational damage â€“ $20,000", mitigatedBy:"Communications Plan"}
+],
+stats:"These types of financial attacks caused over $2.9B in losses globally in 2025.",
+remediation:"Verify all payment requests using secondary channels.  Do you have a verification process for these types of proceedures?  ie; large requests require an email, invoice, and phone call."
+},
+
+
+{
+event:"Ransomware via RDP",
+description:"Weak User password Policies allow attackers into Critical Business servers and gain access to Payroll.",
+impacts:[
+{text:"Server encryption â€“ $90,000", mitigatedBy:"Multi-factor Auth"},
+{text:"Extended downtime â€“ $60,000", mitigatedBy:"Backup & Restore"}
+],
+stats:"RDP (Remote Desktop Protocol) and the ability to access another computer remotely remains a top ransomware entry vector.",
+remediation:"Restrict RDP access and enforce MFA on all infrastructure.  Restricting access, and the principal of least privilege is important.  Who can RDP to your work computer?."
+},
+
+
+{
+event:"Zero-Day Exploit",
+description:"An unknown software vulnerability is exploited allowing attackers into your systems.",
+impacts:[
+{text:"System compromise â€“ $70,000", mitigatedBy:"Patch Management"},
+{text:"Sensitive data theft â€“ $40,000", mitigatedBy:"Encryption"}
+],
+stats:"Zero-days are increasingly used in targeted attacks.",
+remediation:"Monitor threat intelligence and patch quickly.  How frequently are you updating your systems?  Its important to patch external facing systems first."
+},
+
+
+{
+event:"Supply Chain Compromise",
+description:"One of your software vendors has a security Vulnerability (ie; Log4j, MOVEit, printNightmare) allowing several servers to be command and controlled.",
+impacts:[
+{text:"Internal system infection â€“ $60,000", mitigatedBy:"Threat Intelligence"},
+{text:"Data exposure â€“ $30,000", mitigatedBy:"Encryption"}
+],
+stats:"Supply chain attacks are rapidly increasing.",
+remediation:"Vet vendors and keep software up to date."
+},
+{
+event:"Privilege Escalation",
+description:"A Staff member uses AI to try and install software without IT Approval.  The user then gains admin rights improperly allowing access to many network systems.",
+impacts:[
+{text:"Unauthorized changes â€“ $40,000", mitigatedBy:"User Activity Logs"},
+{text:"Delayed response â€“ $30,000", mitigatedBy:"SIEM Monitoring"}
+],
+stats:"Privilege misuse is a common breach factor. A majority of insider incidents are unintentional/negligent (misâ€‘sending data, misconfigurations, falling for phishing), while a smaller slice are truly malicious insiders.",
+remediation:"Monitor Admin activity closely.  Are you scanning for local Admin Accounts, privilaged access to network shares etc?"
+},
+{
+event:"Smishing Attack",
+description:"malicious Text Messages trick employees into entering their username and password to verify their identity.",
+impacts:[
+{text:"Account takeover â€“ $30,000", mitigatedBy:"Employee Training"},
+{text:"Unauthorized access â€“ $20,000", mitigatedBy:"Multi-factor Auth"}
+],
+stats:"SMS phishing attacks are growing rapidly.",
+remediation:"Educate users on how you will be sending alerts and verifications and require MFA (Multifactor Authentication) in your environment."
+},
+{
+event:"Cloud API Token Leak",
+description:"Your software uses another service to login with the same username and password as your computer account.  Exposed API keys on the software allow attackers into cloud services.",
+impacts:[
+{text:"Cloud data exposure â€“ $45,000", mitigatedBy:"Encryption"},
+{text:"Compliance violation â€“ $25,000", mitigatedBy:"Legal & Compliance"}
+],
+stats:"API abuse is a rising cloud threat.",
+remediation:"Restrict permissions to only those accounts that need access.  Do you have a way to see if your service accounts are being used to log on to computers, or RDP and not just do the tasks needed?  You should have a DPA with 3rd parties saying how the data stored will be handled."
+},
+
+
+
+{
+event:"Fake Virus Alert",
+description:"Users install malware disguised as a clickable Virus Scan on a malicious website.",
+impacts:[
+{text:"Malware installed â€“ $35,000", mitigatedBy:"Employee Training"},
+{text:"Endpoint compromise â€“ $30,000", mitigatedBy:"Antivirus"}
+],
+stats:"Fake updates and Fake Virus alerts are an extremely common malware tactic.",
+remediation:"Restrict software installs and educate staff on how your updates will go out to your organization.  Are you blocking uncategorized sites and known malicious domains?"
+},
+
+{
+event:"Data Backup Failure",
+description:"Your backup systems failed 3 months ago.  After a series of brownouts, your generator did not kick on in time and corrupted some key databases.",
+impacts:[
+{text:"Extended outage â€“ $70,000", mitigatedBy:"Backup & Restore"},
+{text:"Recovery delays â€“ $30,000", mitigatedBy:"Disaster Recovery Plan"}
+],
+stats:"Unverified and unmonitored backups are a major risk. Backup systems often fail silently and data cannot be restored if not checked on regularly.",
+remediation:"Test backups regularly, and set up monitoring for failures and unbacked up systems.  How quickly could you recover from a database outage without backups?."
+},
+
+
+{
+event:"Unauthorized SaaS Sharing",
+description:"Sensitive data was accidently shared externally through one of your paid sofware services.",
+impacts:[
+{text:"Data leakage â€“ $45,000", mitigatedBy:"Encryption"},
+{text:"Policy violations â€“ $20,000", mitigatedBy:"Legal & Compliance"}
+],
+stats:"SaaS misconfiguration is a difficult problem. Many Software as a service providers have a hard time keeping up with current attack vectors leading to data exposure.",
+remediation:"Audit sharing permissions.  Make sure you have a DPA with your vendors so you know how your data is being stored and used."
+},
+
+
+{
+event:"Email Server Misconfiguration",
+description:"Your Email relay was exploited.  Spam and phishing emails are now able to come through resulting in a potential email Exfiltration or full Compromise.",
+impacts:[
+{text:"Blacklisting â€“ $25,000", mitigatedBy:"Firewall"},
+{text:"Delayed detection â€“ $20,000", mitigatedBy:"SIEM Monitoring"}
+],
+stats:"Email misconfigurations can cause major service disruptions when phishing Campaigns are mistakenly allowed to come through.",
+remediation:"Audit mail server configurations, and train users on how to report suspect emails.  Do you have a way to filter emails, or to pull a suspect email from users inboxes?"
+},
+{
+event:"Threat Actor Reconnaissance",
+description:"Newly purchased software required external ports to be opened allowing Attackers scan to scan your systems without immediate exploitation.",
+impacts:[
+{text:"Undetected probing â€“ $20,000", mitigatedBy:"IDS"},
+{text:"Missed early warning â€“ $15,000", mitigatedBy:"Threat Intelligence"}
+],
+stats:"Reconnaissance precedes most breaches, and open ports are a high contributing factor.",
+remediation:"Monitor scans of your network and current threat feeds.  Are you scanning for open ports both externally or internally?  Check DNSDUMPSTER.com for possible external devices."
+},
+{
+event:"Third-Party Vendor Breach",
+description:"Your healthcare provider that your company offers to its Employees was compromised and exposes shared data.",
+impacts:[
+{text:"Data exposure â€“ $50,000", mitigatedBy:"Legal & Compliance"},
+{text:"Delayed response â€“ $30,000", mitigatedBy:"Incident Response Team"}
+],
+stats:"Third parties are common breach sources.",
+remediation:"You cant combat everything, and Most Cybersecurity insurance does not cover credit monitoring and is just focused on recovery.  Vette your vendors before selecting a health care partner."
+},
+
+
+
+{
+event:"Security Tool Misconfiguration",
+description:"Security Logging was not enabled on your system, hiding attacker activity.",
+impacts:[
+{text:"Blind spot in detection â€“ $40,000", mitigatedBy:"SIEM Monitoring"},
+{text:"Delayed response â€“ $30,000", mitigatedBy:"Incident Response Team"}
+],
+stats:"Misconfigured tools greatly reduce security effectiveness. With the average Training running around $1,000 PER DAY for vendor software training it is extremely difficult to train all employees effectively when implementing new software and equipment.",
+remediation:"Audit configurations regularly.  Especially those configurations and permissions around the Crown Jewels of your organization."
+},
+
+
+ ========================= */
+ 
+ 
+/* =========================
+   CUSTOM INJECTS
+   ========================= */
+{
+event:"New Parking Lot.",
+description:"A sink Hole drops your primary data center into a 20ft hole.",
+impacts:[
+{text:"Loss of Data â€“ $80,000", mitigatedBy:"Backup & Restore"},
+{text:"Natural Disaster â€“ $2,000,000", mitigatedBy:"Disaster Recovery Plan"}
+],
+stats:"Environmental problems are an ever present risk.",
+remediation:"Train staff on Worst Case Senarios, and test backups regularly."
+},   
+
+{
+event:"Do you hear buzzing?.",
+description:"Bees have taken over your server room through the HVAC system.  Your entire building has to be evacuated and the HVAC has to be turned off for removal which could take several days.",
+impacts:[
+{text:"Loss of Data â€“ $80,000", mitigatedBy:"Backup & Restore"},
+{text:"Natures Course  â€“ $2,000,000", mitigatedBy:"Disaster Recovery Plan"}
+],
+stats:"Environmental problems are an ever present risk.",
+remediation:"Train staff on Worst Case Senarios.  Rememember: You dont need a plan for all outages, just the category of outage."
+}   
+   
+
+];
+
+
+// Shuffle inject deck
+function getShuffledInjectDeck(){
+    let deck=[...injects];
+    for(let i=deck.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [deck[i],deck[j]]=[deck[j],deck[i]];
+    }
+    return deck.slice(0,maxRounds);
+}
+
+function formatCurrency(value){
+    return `$${value.toLocaleString()}`;
+}
+
+function escapeHtml(text){
+    return String(text)
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;")
+        .replace(/'/g,"&#39;");
+}
+
+function getMitigationCoverage(cardTitle){
+    return injects.reduce((count, inject) => count + inject.impacts.filter(impact => impact.mitigatedBy === cardTitle).length, 0);
+}
+
+function getSelectedCards(){
+    return cardsData.filter(card => card.selected);
+}
+
+function normalizeCategoryIndex(cat){
+    const categoryCards = cardsData.filter(card => card.category === cat);
+    if(!categoryCards.length) {
+        categoryViewIndex[cat] = 0;
+        return 0;
+    }
+    const current = categoryViewIndex[cat] ?? 0;
+    const normalized = ((current % categoryCards.length) + categoryCards.length) % categoryCards.length;
+    categoryViewIndex[cat] = normalized;
+    return normalized;
+}
+
+function shiftCategoryCard(cat, direction){
+    const categoryCards = cardsData.filter(card => card.category === cat);
+    if(!categoryCards.length) return;
+    const current = normalizeCategoryIndex(cat);
+    categoryViewIndex[cat] = (current + direction + categoryCards.length) % categoryCards.length;
+    render();
+}
+
+function setPhase(phase){
+    gamePhase = phase;
+    document.body.dataset.phase = phase;
+
+    const boardEyebrow = document.getElementById("boardEyebrow");
+    const boardTitle = document.getElementById("boardTitle");
+    const boardHelper = document.getElementById("boardHelper");
+
+    if(phase === "phase1"){
+        boardEyebrow.textContent = "Phase 1 / Deckbuilding";
+        boardTitle.textContent = "Build your defensive loadout";
+        boardHelper.textContent = "Use the category decks to assemble your starting control set. For classroom play, keep discussion on what buys the most resilience for the least budget.";
+    } else if(phase === "phase2"){
+        boardEyebrow.textContent = "Phase 2 / Operations";
+        boardTitle.textContent = "Reference your locked loadout";
+        boardHelper.textContent = "Your control choices are frozen. Use the decks as a quick visual reference while the live operations panel handles injects, score, and discussion flow.";
+    } else {
+        boardEyebrow.textContent = "Phase 3 / Hotwash";
+        boardTitle.textContent = "Review the final control posture";
+        boardHelper.textContent = "The exercise is over. Use the loadout board and hotwash panel to review what you bought, what it protected, and where planning still needs work.";
+    }
+}
+
+function getProtectedImpactCount(){
+    const selected = new Set(getSelectedCards().map(card => card.title));
+    const totalImpacts = injects.reduce((sum, inject) => sum + inject.impacts.length, 0);
+    const covered = injects.reduce((sum, inject) => sum + inject.impacts.filter(impact => selected.has(impact.mitigatedBy)).length, 0);
+    return {covered,total:totalImpacts};
+}
+
+function updateRoundTrack(){
+    const track = document.getElementById("roundTrack");
+    track.innerHTML = "";
+    for(let index = 1; index <= maxRounds; index++){
+        const node = document.createElement("div");
+        node.className = "round-node";
+        if(index <= currentRound) node.classList.add("done");
+        if(index === currentRound + 1 && locked && !gameOver) node.classList.add("active");
+        if(gameOver && score <= 0 && index === currentRound) node.classList.add("failed");
+        node.innerHTML = `<strong>R${index}</strong><br>${index <= currentRound ? "Resolved" : "Pending"}`;
+        track.appendChild(node);
+    }
+}
+
+function updateThreatFeed(){
+    const feed = document.getElementById("threatFeed");
+    if(!logEntries.length){
+        feed.innerHTML = `<div class="feed-item"><strong>Quiet Network</strong><span>No injects yet. Lock your loadout to begin the exercise.</span></div>`;
+        return;
+    }
+
+    feed.innerHTML = logEntries.slice(0,3).map(entry => `
+        <div class="feed-item">
+            <strong>${escapeHtml(entry.title)}</strong>
+            <span>Round ${entry.round} • ${entry.delta >= 0 ? "+" : ""}${entry.delta} resilience</span>
+        </div>
+    `).join("");
+}
+
+function updateSelectedLoadout(){
+    const selected = getSelectedCards();
+    const list = document.getElementById("selectedLoadout");
+    if(!selected.length){
+        list.innerHTML = `<div class="loadout-item"><strong>No controls equipped</strong><span>Spend your budget to build a starting defense stack.</span></div>`;
+        return;
+    }
+
+    list.innerHTML = selected
+        .sort((a,b) => a.category.localeCompare(b.category) || a.title.localeCompare(b.title))
+        .map(card => `
+            <div class="loadout-item">
+                <div>
+                    <strong>${escapeHtml(card.title)}</strong>
+                    <span>${card.category} • Covers ${getMitigationCoverage(card.title)} inject outcomes</span>
+                </div>
+                <span>${formatCurrency(card.cost)}</span>
+            </div>
+        `).join("");
+}
+
+function updateDashboard(){
+    const {covered,total} = getProtectedImpactCount();
+    const coveragePct = total ? Math.round((covered / total) * 100) : 0;
+    const spendPct = Math.round(((500000 - wallet) / 500000) * 100);
+    const phaseText = gamePhase === "phase1"
+        ? "Phase 1: Deckbuilding"
+        : gamePhase === "phase2"
+            ? `Phase 2: Operations - Round ${Math.min(currentRound + 1, maxRounds)}`
+            : "Phase 3: Hotwash";
+
+    document.getElementById("wallet").textContent = formatCurrency(wallet);
+    document.getElementById("score").textContent = score;
+    document.getElementById("headerScore").textContent = score;
+    document.getElementById("headerRound").textContent = `${currentRound} / ${maxRounds}`;
+    document.getElementById("headerHits").textContent = criticalHits;
+    document.getElementById("phaseBadge").textContent = phaseText;
+    document.getElementById("preparednessValue").textContent = `${coveragePct}%`;
+    document.getElementById("preparednessFill").style.width = `${coveragePct}%`;
+    document.getElementById("budgetSpendValue").textContent = `${spendPct}%`;
+    document.getElementById("budgetSpendFill").style.width = `${spendPct}%`;
+    document.getElementById("scoreStatus").textContent = gameOver ? (score <= 0 ? "Systems Compromised" : "Exercise Complete") : (locked ? "Incident Active" : "Shopping Controls");
+
+    updateSelectedLoadout();
+    updateRoundTrack();
+    updateThreatFeed();
+}
+
+function applyCardZoom(){
+    const scale = zoomSlider.value;
+    const board = document.getElementById("board");
+    board.style.setProperty('--card-width', `${220 * scale}px`);
+    document.querySelectorAll('.card').forEach(card => {
+        card.style.fontSize = `${14 * scale}px`;
+    });
+    document.querySelectorAll('.card h3').forEach(title => {
+        title.style.fontSize = `${17 * scale}px`;
+    });
+    document.querySelectorAll('.card .desc').forEach(desc => {
+        desc.style.fontSize = `${12.5 * scale}px`;
+    });
+}
+
+// Game Settings and Score - Defaults: Wallet $500,000 Score: 65
+function initGame(){
+    wallet=500000;
+    score=65;
+    round=1;
+    criticalHits=0;
+    locked=false;
+    gameOver=false;
+    maxRounds=5;
+    currentRound=0;
+    logEntries=[];
+    categoryViewIndex={Identify:0,Protect:0,Detect:0,Respond:0};
+    setPhase("phase1");
+
+    document.getElementById("right").style.display="none";
+    document.getElementById("note").textContent="Choose your protection cards. You need at least one control from every NIST-inspired category before the exercise can begin.";
+    document.getElementById("incidentLog").innerHTML="";
+    document.getElementById("injectBox").innerHTML='<div class="muted">No inject drawn yet. Once the game starts, each round will appear here with impact details, mitigations, and discussion prompts.</div>';
+    document.getElementById("summaryBox").style.display="none";
+    document.getElementById("summaryBox").innerHTML="";
+    document.getElementById("startGame").style.display="inline-block";
+    document.getElementById("newGame").style.display="none";
+    document.getElementById("drawInject").disabled=true;
+    document.getElementById("fontControls").style.display = "none";
+    document.getElementById("fontSlider").value = 14;
+    document.getElementById("injectBox").style.fontSize = "14px";
+    document.getElementById("incidentLog").style.fontSize = "14px";
+
+    cardsData.forEach(c=>c.selected=false);
+    render();
+    updateDashboard();
+    checkStart();
+}
+
+function render() {
+    const board = document.getElementById("board");
+    board.innerHTML = "";
+
+    categories.forEach(cat => {
+        const selectedInCategory = cardsData.filter(card => card.category === cat && card.selected).length;
+        const categoryCards = cardsData.filter(card => card.category === cat);
+        const categorySpend = categoryCards.filter(card => card.selected).reduce((sum, card) => sum + card.cost, 0);
+        const block = document.createElement("section");
+        block.className = "category-block";
+
+        const visibleIndex = normalizeCategoryIndex(cat);
+        const card = categoryCards[visibleIndex];
+        const coverage = getMitigationCoverage(card.title);
+        const statusLabel = card.selected ? "Equipped" : (locked ? "Not Equipped" : "Available");
+
+        block.innerHTML = `
+            <div class="category-header">
+                <div>
+                    <div class="eyebrow">${cat}</div>
+                    <h3 style="margin-top:8px;">${cat} Controls</h3>
+                    <p>${categoryDescriptions[cat]}</p>
+                </div>
+                <div class="category-chip chip-${cat.toLowerCase()}">${selectedInCategory}/${categoryCards.length} selected • ${formatCurrency(categorySpend)}</div>
+            </div>
+            <div class="deck-controls">
+                <div class="deck-counter">Card ${visibleIndex + 1} of ${categoryCards.length}</div>
+                <div class="deck-nav">
+                    <button type="button" class="secondary-btn" data-cat-nav="${cat}" data-direction="-1">Previous</button>
+                    <button type="button" class="secondary-btn" data-cat-nav="${cat}" data-direction="1">Next</button>
+                </div>
+            </div>
+            <div class="deck-stage">
+                <div class="deck-shadow"></div>
+                <div class="deck-shadow-two"></div>
+                <div class="card ${card.selected ? "selected" : ""} ${locked && !card.selected ? "greyed" : ""} ${locked ? "hide-desc" : ""}" data-card-title="${escapeHtml(card.title)}">
+                    <div class="card-header">
+                        <span class="card-tag header-${cat.toLowerCase()}">${cat}</span>
+                        <span class="coverage-tag">${coverage} mitigations</span>
+                    </div>
+                    <h3>${escapeHtml(card.title)}</h3>
+                    <p class="desc">${card.desc.replace(/\n/g,"<br>")}</p>
+                    <div class="card-meta-list">
+                        <div class="card-meta">
+                            <span>Budget Cost</span>
+                            <strong class="cost">${formatCurrency(card.cost)}</strong>
+                        </div>
+                        <div class="card-meta">
+                            <span>Status</span>
+                            <span class="status-pill">${statusLabel}</span>
+                        </div>
+                    </div>
+                    <div class="card-stack-note">Use Previous/Next to browse the stack while keeping every category visible for the room.</div>
+                </div>
+            </div>
+        `;
+
+        board.appendChild(block);
+    });
+
+    document.querySelectorAll("[data-cat-nav]").forEach(button => {
+        button.onclick = (event) => {
+            event.stopPropagation();
+            shiftCategoryCard(button.dataset.catNav, Number(button.dataset.direction));
+        };
+    });
+
+    document.querySelectorAll("[data-card-title]").forEach(cardEl => {
+        cardEl.onclick = () => {
+            const card = cardsData.find(entry => entry.title === cardEl.dataset.cardTitle);
+            if(!card) return;
+            if (!locked) {
+                if (card.selected) { card.selected = false; wallet += card.cost; }
+                else if (wallet >= card.cost) { card.selected = true; wallet -= card.cost; }
+                render();
+                updateDashboard();
+                checkStart();
+            } else {
+                cardEl.classList.toggle('expand-desc');
+            }
+        };
+    });
+
+    applyCardZoom();
+}
+
+function checkStart(){
+    document.getElementById("startGame").disabled = !categories.every(cat => cardsData.some(c => c.category === cat && c.selected));
+}
+
+document.getElementById("startGame").onclick=()=>{
+    locked=true;
+    setPhase("phase2");
+    document.getElementById("right").style.display="flex";
+    document.getElementById("fontControls").style.display = "block";
+    currentRound=0;
+    injectDeck=getShuffledInjectDeck();
+    document.getElementById("note").textContent="Round 1 is live. Draw an inject, discuss the impact by department, and use the worksheet to capture gaps, recovery steps, and ownership.";
+    document.getElementById("startGame").style.display="none";
+    document.getElementById("drawInject").disabled=false;
+    render();
+    updateDashboard();
+};
+
+document.getElementById("drawInject").onclick = () => {
+    if(gameOver) return;
+    if(currentRound >= injectDeck.length) return;
+
+    const inject = injectDeck[currentRound++];
+    let delta = 0;
+    const impactMarkup = inject.impacts.map(i => {
+        const has = cardsData.some(c => c.selected && c.title === i.mitigatedBy);
+        if(has) delta += 5;
+        else delta -= 15;
+        return `
+            <div class="impact-item ${has ? "protected" : "unprotected"}">
+                <div>
+                    <strong>${escapeHtml(i.text)}</strong>
+                    <small>${has ? `Protected by ${escapeHtml(i.mitigatedBy)} for +5` : `Unprotected. ${escapeHtml(i.mitigatedBy)} would have reduced this hit.`}</small>
+                </div>
+                <span class="${has ? "green" : "red"}">${has ? "+5" : "-15"}</span>
+            </div>
+        `;
+    }).join("");
+
+    document.getElementById("injectBox").innerHTML = `
+        <div class="inject-header">
+            <div>
+                <div class="eyebrow">Inject ${currentRound} of ${maxRounds}</div>
+                <h3>${escapeHtml(inject.event)}</h3>
+                <div class="inject-sub">${escapeHtml(inject.description)}</div>
+            </div>
+            <span class="card-tag ${delta >= 0 ? "header-protect" : "header-respond"}">${delta >= 0 ? "Contained" : "Escalating"}</span>
+        </div>
+        <div class="impact-list">${impactMarkup}</div>
+        <details>
+            <summary class="yellow" style="cursor:pointer;font-weight:700;">Reveal Real-World Impact and Remediation</summary>
+            <div style="margin-top:12px;">
+                <strong class="yellow">Real World Impact</strong>
+                <p style="margin:6px 0 14px;">${escapeHtml(inject.stats)}</p>
+                <strong class="yellow">Facilitator Prompt</strong>
+                <p style="margin:6px 0 0;">${escapeHtml(inject.remediation)}</p>
+            </div>
+        </details>
+    `;
+
+    score += delta;
+    if(delta <= -20) criticalHits++;
+
+    logEntries.unshift({
+        round:currentRound,
+        title:inject.event,
+        delta,
+        remediation:inject.remediation
+    });
+
+    document.getElementById("incidentLog").innerHTML = logEntries.map(entry => `
+        <div class="log-item">
+            <strong>Round ${entry.round}: ${escapeHtml(entry.title)}</strong>
+            <span class="${entry.delta >= 0 ? "green" : "red"}">${entry.delta >= 0 ? "+" : ""}${entry.delta} resilience</span>
+            <div class="muted" style="margin-top:6px;">${escapeHtml(entry.remediation)}</div>
+        </div>
+    `).join("");
+
+    document.getElementById("note").textContent = currentRound < maxRounds
+        ? `Inject resolved. Use the worksheet discussion, then draw round ${currentRound + 1} when your group is ready.`
+        : "Final inject resolved. Review the hotwash to discuss what held and what failed.";
+
+    if(score <= 0){
+        score = 0;
+        gameOver = true;
+        document.body.classList.add("flash-lose");
+        setTimeout(() => document.body.classList.remove("flash-lose"), 3000);
+        updateDashboard();
+        endGame(true);
+        return;
+    }
+
+    if(currentRound >= maxRounds){
+        gameOver = true;
+        document.body.classList.add("flash-win");
+        setTimeout(() => document.body.classList.remove("flash-win"), 3000);
+        updateDashboard();
+        endGame(false);
+        return;
+    }
+
+    updateDashboard();
+};
+
+function endGame(failed){
+    setPhase("phase3");
+    document.getElementById("drawInject").disabled=true;
+    document.getElementById("note").textContent = failed
+        ? "All systems compromised. Move into lessons learned and recovery planning."
+        : "Exercise complete. Use the hotwash below to compare what you bought against the threats you actually faced.";
+
+    let suggestions=[];
+    if(!cardsData.some(c=>c.selected&&c.title==="Multi-factor Auth"))suggestions.push("Consider adding Multi-factor Authentication.");
+    if(!cardsData.some(c=>c.selected&&c.title==="SIEM Monitoring"))suggestions.push("Invest in centralized monitoring (SIEM).");
+    if(!cardsData.some(c=>c.selected&&c.title==="Employee Training"))suggestions.push("Expand employee security training.");
+    if(!cardsData.some(c=>c.selected&&c.title==="Backup & Restore"))suggestions.push("Strengthen backup and restore capability to reduce prolonged outages.");
+
+    document.getElementById("summaryBox").style.display="block";
+    document.getElementById("summaryBox").innerHTML = failed ? `
+        <strong class="red" style="font-size:1.5rem;">Exercise Failed</strong>
+        <p>Your current stack was overwhelmed before all five rounds completed. That is still a useful tabletop outcome because it shows where recovery assumptions break down under pressure.</p>
+        <div class="summary-grid">
+            <div class="summary-stat"><span class="label">Final Score</span><strong>${score}</strong></div>
+            <div class="summary-stat"><span class="label">Rounds Survived</span><strong>${currentRound}/${maxRounds}</strong></div>
+            <div class="summary-stat"><span class="label">Critical Hits</span><strong>${criticalHits}</strong></div>
+        </div>
+        <strong class="yellow">Next Planning Steps</strong>
+        <p>${suggestions.join(" ") || "Your controls are well balanced, but your team should still validate incident communications and restoration timing."}</p>
+    ` : `
+        <strong class="green" style="font-size:1.5rem;">You Survived, For Now</strong>
+        <p>Your organization made it through the campaign, but the exercise still highlights where prevention, detection, and recovery need deeper investment.</p>
+        <div class="summary-grid">
+            <div class="summary-stat"><span class="label">Final Score</span><strong>${score}</strong></div>
+            <div class="summary-stat"><span class="label">Critical Hits</span><strong>${criticalHits}</strong></div>
+            <div class="summary-stat"><span class="label">Controls Equipped</span><strong>${getSelectedCards().length}</strong></div>
+        </div>
+        <p>Cyber incidents are rarely about perfect prevention. They are about how fast you detect, how clearly you communicate, and how confidently you recover with limited time and staff.</p>
+        <strong class="yellow">Next Planning Steps</strong>
+        <p>${suggestions.join(" ") || "Your controls are well balanced. Use the worksheet discussion to identify ownership gaps and test restoration timing."}</p>
+    `;
+
+    document.getElementById("newGame").style.display="inline-block";
+    render();
+    updateDashboard();
+}
+
+document.getElementById("newGame").onclick=()=>{
+    initGame();
+};
+
+zoomSlider.addEventListener('input', applyCardZoom);
+
+initGame();
+const fontSlider = document.getElementById('fontSlider');
+
+fontSlider.addEventListener('input', () => {
+    const size = fontSlider.value + 'px';
+    document.getElementById('injectBox').style.fontSize = size;
+    document.getElementById('incidentLog').style.fontSize = size;
+});</script>
+</body>
+</html>
+
+

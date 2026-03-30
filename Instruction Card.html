@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Instructions Handout</title>
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #3b82f6;
+            --accent-green: #065f46;
+            --accent-orange: #f59e0b;
+            --text-dark: #1f2937;
+            --bg-gray: #f3f4f6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-gray);
+            margin: 0;
+            padding: 15px;
+            color: var(--text-dark);
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .page-wrapper {
+            max-width: 800px; /* Forced narrower for Portrait feel */
+            margin: 0 auto;
+        }
+
+        .proctor-header {
+            text-align: center;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            border: 3px solid var(--accent-orange);
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .proctor-header h1 {
+            margin: 0;
+            font-size: 1rem;
+            color: var(--text-dark);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .grid {
+            display: flex;
+            flex-direction: column; /* Portrait Stack */
+            gap: 15px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            page-break-inside: avoid;
+        }
+
+        .card-header {
+            padding: 10px 20px;
+            color: white;
+        }
+
+        .it-header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); }
+        .er-header { background: linear-gradient(135deg, #065f46 0%, #10b981 100%); }
+
+        .card-header h2 { margin: 0; font-size: 1.2rem; }
+
+        .card-content {
+            padding: 15px 20px;
+            flex-grow: 1;
+            font-size: 0.9rem;
+        }
+
+        h3 {
+            margin-top: 0;
+            font-size: 1rem;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 3px;
+            margin-bottom: 8px;
+        }
+
+        .it-title { color: var(--primary-blue); }
+        .er-title { color: var(--accent-green); }
+
+        p { margin: 8px 0; line-height: 1.3; }
+        ul { padding-left: 20px; margin: 8px 0; }
+        li { margin-bottom: 4px; line-height: 1.3; }
+
+        .discussion-box {
+            background: #f1f5f9;
+            border-left: 4px solid var(--secondary-blue);
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin: 12px 0;
+        }
+
+        .goals-footer {
+            background: #f8fafc;
+            padding: 10px 20px;
+            border-top: 1px solid #eee;
+            font-size: 0.85rem;
+        }
+
+        /* PRINT OPTIMIZATION */
+        @media print {
+            body { background-color: white; padding: 0; }
+            .page-wrapper { max-width: 100%; margin: 0; }
+            .card { box-shadow: none; border: 1px solid #ccc; }
+            .proctor-header { border-width: 2px; }
+            .grid { gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+    <div class="proctor-header">
+        <h1>⚠️ BOTH GAMES ARE MEANT TO BE PROCTORED BY SOMEONE TO LEAD THE DISCUSSION</h1>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <div class="card-header it-header">
+                <h2>Game 1 - IT Focused Workshop</h2>
+            </div>
+            <div class="card-content">
+                <p>You have a <strong>Modest budget of $500,000</strong> to choose your software purchases for the year and protect your organization.</p>
+                
+                <h3 class="it-title">Phase 1: Protection</h3>
+                <p>Choose your Protection Products carefully as a group, as they will be the only thing to protect you from the incidents that are about to occur (Injects).</p>
+                <ul>
+                    <li>You must select at least 1 from each category for the game to begin.</li>
+                    <li>Keep spending until you can't make any more purchases.</li>
+                </ul>
+
+                <h3 class="it-title">Phase 2: Execution</h3>
+                <p>Once chosen click <strong>"Start Game"</strong>. This will advance you to the next page and allow you to draw an Inject Card.</p>
+                <p>You will then be given a scenario that you will either be:</p>
+                <ul>
+                    <li><strong>Protected:</strong> (Matching Software) <strong>+5 Points</strong></li>
+                    <li><strong>Not Protected:</strong> (No Software) <strong>-15 Points</strong></li>
+                </ul>
+
+                <div class="discussion-box">
+                    <strong>Group Discussion Questions:</strong>
+                    <ul>
+                        <li>Were you protected? Would you have been in your actual environment from this type of incident?</li>
+                        <li>How did you remediate? How would you remediate your environment?</li>
+                        <li>What other departments would this have affected other than just IT? Who else would need to be notified?</li>
+                    </ul>
+                </div>
+                <p style="font-size: 0.8rem; font-style: italic; color: #444; margin: 0;">After discussion, click the "VIEW REAL WORLD IMPACT & REMEDIATION" button.</p>
+            </div>
+            <div class="goals-footer">
+                <strong>GOALS:</strong> Create awareness of different outages. Use Fillable workshop sheets to develop or fully realize backup plans. A good first question to ask is: Where did this information come from? Then follow the chain of command up the food chain until resolution. <strong>Can you survive 5 rounds?</strong>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header er-header">
+                <h2>Game 2 - Emergency Response</h2>
+            </div>
+            <div class="card-content">
+                <h3 class="er-title">Setup</h3>
+                <p>Choose your Departments that will be participating in the exercise. Select your number of rounds, and a timer if you want to add a sense of urgency.</p>
+                
+                <h3 class="er-title">The Exercise</h3>
+                <p>Read the inject. After each inject is drawn, fill out the fillable response worksheet either as departments or as a team and discuss your findings with the group.</p>
+
+                <h3 class="er-title">Rating & Analysis</h3>
+                <ul>
+                    <li><strong>Rate your response:</strong> Use the slider to report whether the department had No plan, a current plan, or somewhere in between.</li>
+                    <li><strong>Impact Mapping:</strong> Select the other departments that this would affect.</li>
+                    <li><strong>Progress:</strong> Click "Submit & Next" to move to the next question.</li>
+                </ul>
+
+                <div class="discussion-box" style="border-left-color: var(--accent-green);">
+                    <strong>Key Insight:</strong> It's not always easy to tell who or what will be affected, but all departments are tied together in many ways. A good first question to ask is: Where did this information come from? Then follow the chain of command up the food chain until resolution.
+                </div>
+            </div>
+            <div class="goals-footer">
+                <strong>GOALS:</strong> Create awareness of different types of outages. Use Fillable workshop sheets as a starting point to develop/realize backup plans.
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

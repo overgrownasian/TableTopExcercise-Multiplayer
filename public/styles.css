@@ -97,6 +97,15 @@ textarea {
   gap: 16px;
   margin-bottom: 14px;
 }
+.room-code-block {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.room-join-path {
+  font-size: .95rem;
+  word-break: break-all;
+}
 .deckbuild-sticky {
   position: sticky;
   top: 12px;
@@ -170,6 +179,39 @@ textarea {
 .badge.good { color: var(--good); }
 .badge.bad { color: var(--bad); }
 .badge.warn { color: var(--warn); }
+.badge-toggle {
+  border: 1px solid rgba(157,176,196,.12);
+  cursor: pointer;
+  background: rgba(255,255,255,.08);
+}
+.join-link-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(157,176,196,.12);
+  background: rgba(255,255,255,.03);
+}
+.join-qr {
+  width: 132px;
+  height: 132px;
+  border-radius: 12px;
+  background: white;
+  padding: 8px;
+}
+.join-qr.compact {
+  width: 120px;
+  height: 120px;
+}
+.deckbuild-timer-badge {
+  margin-bottom: 8px;
+}
+.modal-prompt-list {
+  display: grid;
+  gap: 10px;
+}
 .controls-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .category {
   border: 1px solid rgba(157,176,196,.12);
@@ -320,6 +362,8 @@ textarea {
   .controls-grid { grid-template-columns: 1fr; }
   .report-checkboxes { grid-template-columns: 1fr; }
   .room-panel-header, .inject-builder-header { flex-direction: column; }
+  .room-code-block { width: 100%; justify-content: space-between; }
+  .join-link-card { flex-direction: column; align-items: flex-start; }
 }
 
 .slim-panel {

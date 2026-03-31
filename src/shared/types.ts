@@ -69,6 +69,7 @@ export interface RoomState {
   phase: RoomPhase;
   maxRounds: number;
   round: number;
+  deckbuildAutoLockAt: number | null;
   cards: ControlCard[];
   injectDeck: InjectCard[];
   currentInject: CurrentInjectView | null;
@@ -96,8 +97,11 @@ export type ClientToServerMessage =
   | { type: "toggle-card"; roomCode: string; cardTitle: string }
   | { type: "lock-deck"; roomCode: string }
   | { type: "unlock-deck"; roomCode: string }
+  | { type: "toggle-player-lock"; roomCode: string; playerId: string }
+  | { type: "start-deckbuild-timer"; roomCode: string; durationSeconds: number }
   | { type: "begin-gameplay"; roomCode: string }
   | { type: "draw-inject"; roomCode: string }
+  | { type: "finish-game"; roomCode: string }
   | { type: "submit-report"; roomCode: string; summary: string; notified: string[] }
   | { type: "remove-player"; roomCode: string; playerId: string }
   | { type: "reset-room"; roomCode: string };

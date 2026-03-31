@@ -27,6 +27,8 @@ interface RoomInternal {
   phase: RoomPhase;
   maxRounds: number;
   round: number;
+  deckbuildAutoLockAt: number | null;
+  deckbuildTimer: ReturnType<typeof setTimeout> | null;
   cards: typeof controlCards;
   injectDeck: InjectCard[];
   currentInject: CurrentInjectView | null;
@@ -149,7 +151,7 @@ app.get("/api/info", (_req, res) => {
     .filter((entry): entry is os.NetworkInterfaceInfo => Boolean(entry && entry.family === "IPv4" && !entry.internal))
     .map((entry) => entry.address);
 
-  res.json({ port, addresses, joinBaseUrl });
+  res.json({ port, addresses, joinBaseUrl, adminConfigured: Boolean(adminPasswordHash) });
 });
 
 app.get("/api/admin/session", (req, res) => {
@@ -432,6 +434,7 @@ function serializeRoom(room: RoomInternal): RoomState {
     phase: room.phase,
     maxRounds: room.maxRounds,
     round: room.round,
+    deckbuildAutoLockAt: room.deckbuildAutoLockAt,
     cards: room.cards,
     injectDeck: room.injectDeck,
     currentInject: room.currentInject,
@@ -467,6 +470,8 @@ function createRoom(clientId: string, sessionKey: string) {
     phase: "deckbuild",
     maxRounds,
     round: 0,
+    deckbuildAutoLockAt: null,
+    deckbuildTimer: null,
     cards: controlCards,
     injectDeck: shuffleInjectDeck(maxRounds),
     currentInject: null,
@@ -501,6 +506,68 @@ function reattachFacilitator(clientId: string, roomCode: string, sessionKey: str
 function allPlayersLocked(room: RoomInternal) {
   const players = [...room.players.values()];
   return players.length > 0 && players.every((player) => player.locked);
+}
+
+function clearDeckbuildTimer(room: RoomInternal) {
+  if (room.deckbuildTimer) {
+    clearTimeout(room.deckbuildTimer);
+    room.deckbuildTimer = null;
+  }
+  room.deckbuildAutoLockAt = null;
+}
+
+function startGameplay(room: RoomInternal, drawImmediately = false) {
+  clearDeckbuildTimer(room);
+  room.injectDeck = shuffleInjectDeck(room.maxRounds);
+  room.phase = "gameplay";
+  room.round = 0;
+  room.currentInject = null;
+
+  if (drawImmediately) {
+    drawNextInject(room);
+  }
+}
+
+function drawNextInject(room: RoomInternal) {
+  if (room.phase !== "gameplay" || room.round >= room.injectDeck.length) return false;
+
+  const inject = room.injectDeck[room.round];
+  room.round += 1;
+  const resolutions = [...room.players.values()].map((player) => resolveInjectForPlayer(player, inject));
+  room.currentInject = { round: room.round, inject, resolutions, reports: [] };
+  return true;
+}
+
+function scheduleDeckbuildAutoStart(room: RoomInternal, durationSeconds: number) {
+  clearDeckbuildTimer(room);
+  room.deckbuildAutoLockAt = Date.now() + durationSeconds * 1000;
+  room.deckbuildTimer = setTimeout(() => {
+    room.deckbuildTimer = null;
+    room.deckbuildAutoLockAt = null;
+    for (const player of room.players.values()) {
+      player.locked = true;
+    }
+    startGameplay(room, true);
+    broadcastRoom(room.roomCode);
+  }, durationSeconds * 1000);
+}
+
+function remapCurrentInjectPlayer(room: RoomInternal, previousPlayerId: string, nextPlayerId: string, playerName: string) {
+  if (!room.currentInject) return;
+
+  for (const resolution of room.currentInject.resolutions) {
+    if (resolution.playerId === previousPlayerId) {
+      resolution.playerId = nextPlayerId;
+      resolution.playerName = playerName;
+    }
+  }
+
+  for (const report of room.currentInject.reports) {
+    if (report.playerId === previousPlayerId) {
+      report.playerId = nextPlayerId;
+      report.playerName = playerName;
+    }
+  }
 }
 
 function playerOwnsCategory(player: PlayerState, category: string, cards: typeof controlCards) {
@@ -543,6 +610,7 @@ function resolveInjectForPlayer(player: PlayerState, inject: InjectCard): Inject
 }
 
 function resetRoom(room: RoomInternal) {
+  clearDeckbuildTimer(room);
   room.phase = "deckbuild";
   room.round = 0;
   room.currentInject = null;
@@ -608,10 +676,12 @@ wss.on("connection", (ws) => {
       const existingPlayer = [...room.players.values()].find((player) => player.sessionKey === message.sessionKey);
 
       if (existingPlayer) {
+        const previousPlayerId = existingPlayer.id;
         room.players.delete(existingPlayer.id);
         existingPlayer.id = clientId;
         existingPlayer.name = trimmedName;
         existingPlayer.connected = true;
+        remapCurrentInjectPlayer(room, previousPlayerId, clientId, trimmedName);
         room.players.set(clientId, existingPlayer);
       } else {
         room.players.set(clientId, {
@@ -630,6 +700,16 @@ wss.on("connection", (ws) => {
       }
 
       send(ws, { type: "welcome", clientId, role: "player" });
+      broadcastRoom(room.roomCode);
+      return;
+    }
+
+    if (message.type === "toggle-player-lock") {
+      const room = ensureFacilitator(clientId, message.roomCode);
+      const player = room?.players.get(message.playerId);
+      if (!room || !player || room.phase !== "deckbuild") return;
+
+      player.locked = !player.locked;
       broadcastRoom(room.roomCode);
       return;
     }
@@ -671,6 +751,15 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    if (message.type === "start-deckbuild-timer") {
+      const room = ensureFacilitator(clientId, message.roomCode);
+      if (!room || room.phase !== "deckbuild") return;
+
+      scheduleDeckbuildAutoStart(room, Math.max(5, Math.min(60 * 30, Math.floor(message.durationSeconds))));
+      broadcastRoom(room.roomCode);
+      return;
+    }
+
     if (message.type === "begin-gameplay") {
       const room = ensureFacilitator(clientId, message.roomCode);
       if (!room) return;
@@ -678,10 +767,7 @@ wss.on("connection", (ws) => {
         send(ws, { type: "error", message: "Every player must lock a deck before gameplay begins." });
         return;
       }
-      room.injectDeck = shuffleInjectDeck(room.maxRounds);
-      room.phase = "gameplay";
-      room.round = 0;
-      room.currentInject = null;
+      startGameplay(room, false);
       broadcastRoom(room.roomCode);
       return;
     }
@@ -689,17 +775,16 @@ wss.on("connection", (ws) => {
     if (message.type === "draw-inject") {
       const room = ensureFacilitator(clientId, message.roomCode);
       if (!room || room.phase !== "gameplay") return;
-      if (room.round >= room.injectDeck.length) return;
+      if (room.round >= room.maxRounds) return;
+      drawNextInject(room);
+      broadcastRoom(room.roomCode);
+      return;
+    }
 
-      const inject = room.injectDeck[room.round];
-      room.round += 1;
-      const resolutions = [...room.players.values()].map((player) => resolveInjectForPlayer(player, inject));
-      room.currentInject = { round: room.round, inject, resolutions, reports: [] };
-
-      if (room.round >= room.maxRounds) {
-        room.phase = "hotwash";
-      }
-
+    if (message.type === "finish-game") {
+      const room = ensureFacilitator(clientId, message.roomCode);
+      if (!room || room.phase !== "gameplay" || room.round < room.maxRounds || !room.currentInject) return;
+      room.phase = "hotwash";
       broadcastRoom(room.roomCode);
       return;
     }
@@ -760,6 +845,7 @@ wss.on("connection", (ws) => {
       }
 
       broadcastRoom(room.roomCode);
+      return;
     }
   });
 

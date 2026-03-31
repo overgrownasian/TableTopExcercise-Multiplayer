@@ -9,8 +9,11 @@ import type {
   RoomState,
   ServerToClientMessage
 } from "../shared/types.js";
+import QRCode from "qrcode";
 
 type RoleView = "landing" | "facilitator" | "player" | "admin";
+type ReportDraft = { summary: string; notified: string[] };
+type JoinLinkEntry = { url: string; qrDataUrl: string };
 
 const app = document.getElementById("app") as HTMLDivElement | null;
 if (!app) throw new Error("App root not found");
@@ -24,7 +27,13 @@ const state: {
   roomCode: string;
   playerName: string;
   error: string;
-  hostInfo: { port: number; addresses: string[]; joinBaseUrl?: string } | null;
+  hostInfo: { port: number; addresses: string[]; joinBaseUrl?: string; adminConfigured?: boolean } | null;
+  joinLinks: JoinLinkEntry[];
+  joinLinksKey: string;
+  reportDrafts: Record<string, ReportDraft>;
+  currentTime: number;
+  reconnectTimer: number | null;
+  facilitatorInjectModalDismissedRound: number;
   facilitatorSelectedPlayerId: string;
   facilitatorModalMode: "" | "deck" | "inject";
   facilitatorFinalModalDismissed: boolean;
@@ -46,6 +55,12 @@ const state: {
   playerName: "",
   error: "",
   hostInfo: null,
+  joinLinks: [],
+  joinLinksKey: "",
+  reportDrafts: {},
+  currentTime: Date.now(),
+  reconnectTimer: null,
+  facilitatorInjectModalDismissedRound: 0,
   facilitatorSelectedPlayerId: "",
   facilitatorModalMode: "",
   facilitatorFinalModalDismissed: false,
@@ -141,12 +156,74 @@ function getView(): RoleView {
   return "landing";
 }
 
+function getJoinUrls() {
+  if (!state.hostInfo || !state.roomCode) return [] as string[];
+  const baseUrl = state.hostInfo.joinBaseUrl?.trim();
+  if (baseUrl) {
+    return [`${baseUrl}/player?room=${state.roomCode}`];
+  }
+  if (state.hostInfo.addresses.length) {
+    return state.hostInfo.addresses.map((address) => `http://${address}:${state.hostInfo?.port}/player?room=${state.roomCode}`);
+  }
+  return [`${window.location.origin}/player?room=${state.roomCode}`];
+}
+
+async function refreshJoinLinks() {
+  const urls = getJoinUrls();
+  const nextKey = urls.join("|");
+  if (!urls.length) {
+    state.joinLinks = [];
+    state.joinLinksKey = "";
+    return;
+  }
+  if (nextKey === state.joinLinksKey && state.joinLinks.length === urls.length) {
+    return;
+  }
+
+  state.joinLinksKey = nextKey;
+  state.joinLinks = await Promise.all(
+    urls.map(async (url) => ({
+      url,
+      qrDataUrl: await QRCode.toDataURL(url, { margin: 1, width: 220 })
+    }))
+  );
+}
+
+function getReportDraftKey(round: number) {
+  return `${state.roomCode}:${round}`;
+}
+
+function getReportDraft(round: number): ReportDraft {
+  return state.reportDrafts[getReportDraftKey(round)] ?? { summary: "", notified: [] };
+}
+
+function updateReportDraft(round: number, nextDraft: ReportDraft) {
+  state.reportDrafts[getReportDraftKey(round)] = nextDraft;
+}
+
+function clearReportDraft(round: number) {
+  delete state.reportDrafts[getReportDraftKey(round)];
+}
+
+function formatCountdown(targetTime: number) {
+  const remainingMs = Math.max(0, targetTime - state.currentTime);
+  const totalSeconds = Math.ceil(remainingMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 async function loadHostInfo() {
   try {
     const response = await fetch("/api/info");
     state.hostInfo = await response.json();
+    state.adminConfigured = state.hostInfo.adminConfigured ?? false;
+    await refreshJoinLinks();
   } catch {
     state.hostInfo = null;
+    state.adminConfigured = false;
+    state.joinLinks = [];
+    state.joinLinksKey = "";
   }
 }
 
@@ -267,10 +344,21 @@ function connect() {
     if (message.type === "room-created") {
       state.roomCode = message.roomCode;
       history.replaceState(null, "", `/facilitator?room=${message.roomCode}`);
+      void refreshJoinLinks().then(() => render());
     }
     if (message.type === "room-state") {
       const priorPhase = state.room?.phase;
+      const priorInjectRound = state.room?.currentInject?.round ?? 0;
       state.room = message.room;
+      if (getView() === "facilitator") {
+        void refreshJoinLinks().then(() => render());
+      }
+      if (getView() === "player" && message.room.currentInject) {
+        const resolution = message.room.currentInject.resolutions.find((entry) => entry.playerId === state.clientId);
+        if (resolution?.reportSubmitted) {
+          clearReportDraft(message.room.currentInject.round);
+        }
+      }
       if (getView() === "facilitator") {
         if (!state.facilitatorSelectedPlayerId && message.room.players.length) {
           state.facilitatorSelectedPlayerId = message.room.players[0]?.id ?? "";
@@ -279,6 +367,9 @@ function connect() {
         if (!selectedStillExists) {
           state.facilitatorSelectedPlayerId = message.room.players[0]?.id ?? "";
           state.facilitatorModalMode = "";
+        }
+        if (message.room.currentInject && message.room.currentInject.round !== priorInjectRound) {
+          state.facilitatorInjectModalDismissedRound = 0;
         }
         if (message.room.phase === "hotwash" && priorPhase !== "hotwash") {
           state.facilitatorFinalModalDismissed = false;
@@ -296,6 +387,19 @@ function connect() {
     render();
     maybeAutoRejoinPlayerRoom();
     maybeAutoRejoinFacilitatorRoom();
+  });
+
+  state.socket.addEventListener("close", () => {
+    state.socket = null;
+    if (state.reconnectTimer) {
+      window.clearTimeout(state.reconnectTimer);
+    }
+    if (!["facilitator", "player"].includes(getView())) return;
+    state.reconnectTimer = window.setTimeout(() => {
+      state.reconnectTimer = null;
+      connect();
+    }, 1000);
+    render();
   });
 }
 
@@ -321,18 +425,20 @@ function escapeHtml(text: string) {
     .replace(/'/g, "&#39;");
 }
 
-function roomJoinLinks() {
-  if (!state.hostInfo || !state.roomCode) return `<div class="muted">Room link will appear once the server reports a reachable address.</div>`;
-  const baseUrl = state.hostInfo.joinBaseUrl?.trim();
-  const links = baseUrl
-    ? [`${baseUrl}/player?room=${state.roomCode}`]
-    : state.hostInfo.addresses.length
-      ? state.hostInfo.addresses.map((address) => `http://${address}:${state.hostInfo?.port}/player?room=${state.roomCode}`)
-      : [`${window.location.origin}/player?room=${state.roomCode}`];
+function renderRoomJoinSummary() {
+  if (!state.hostInfo || !state.roomCode) return `<div class="muted">Join details will appear once the room is ready.</div>`;
+  if (!state.joinLinks.length) return `<div class="muted">Generating join QR code...</div>`;
+  const primaryJoinLink = state.joinLinks[0];
+  const joinDisplayUrl = primaryJoinLink.url.split("?")[0] ?? primaryJoinLink.url;
 
   return `
-    <div class="stack">
-      ${links.map((link) => `<div><div class="eyebrow">Join URL</div><div>${escapeHtml(link)}</div></div>`).join("")}
+    <div class="room-code-block">
+      <img class="join-qr compact" src="${primaryJoinLink.qrDataUrl}" alt="QR code for ${escapeHtml(primaryJoinLink.url)}">
+      <div>
+        <div class="eyebrow">Room</div>
+        <h2>Code: ${state.roomCode}</h2>
+        <div class="muted room-join-path">${escapeHtml(joinDisplayUrl)}</div>
+      </div>
     </div>
   `;
 }
@@ -360,7 +466,6 @@ function renderLanding() {
         <div class="landing-actions">
           <a href="/facilitator"><button>Facilitator Screen</button></a>
           <a href="/player"><button class="secondary">Player Join</button></a>
-          <a href="/admin/injects"><button class="secondary">Admin Injects</button></a>
         </div>
       </div>
     </div>
@@ -440,6 +545,35 @@ function renderFacilitatorPlayerInjectModal(currentInject: CurrentInjectView, pl
   `;
 }
 
+function renderInjectDiscussionModal(currentInject: CurrentInjectView) {
+  return `
+    <div class="eyebrow">Current Inject</div>
+    <h2>Round ${currentInject.round}: ${escapeHtml(currentInject.inject.event)}</h2>
+    <p class="muted">${escapeHtml(currentInject.inject.description)}</p>
+    ${currentInject.inject.impacts.map((impact) => `
+      <div class="inject-row">
+        <span>${escapeHtml(impact.text)}</span>
+        <span class="badge warn">${escapeHtml(impact.mitigatedBy)}</span>
+      </div>
+    `).join("")}
+    <div class="spacer"></div>
+    <div class="report-card">
+      <strong>Remediation Guidance</strong>
+      <div class="muted">${escapeHtml(currentInject.inject.remediation)}</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="report-card">
+      <strong>Discussion Prompt</strong>
+      <div class="stack modal-prompt-list">
+        <div>What happened first, and how would your team confirm the incident is real?</div>
+        <div>Who needs to be notified in the first 15 minutes?</div>
+        <div>Which selected controls helped most, and what gaps were exposed?</div>
+        <div>What is your next operational decision before moving to the next round?</div>
+      </div>
+    </div>
+  `;
+}
+
 function renderInjectBuilderContent() {
   const draft = state.injectDraft;
   return `
@@ -514,7 +648,16 @@ function renderFacilitator() {
   const ready = players.filter((player) => player.locked).length;
   const canBegin = Boolean(room && room.phase === "deckbuild" && players.length > 0 && ready === players.length);
   const currentInject = room?.currentInject;
+  const showFinishGame = Boolean(room && room.phase === "gameplay" && room.round >= room.maxRounds && currentInject);
+  const deckbuildCountdown = room?.phase === "deckbuild" && room.deckbuildAutoLockAt
+    ? formatCountdown(room.deckbuildAutoLockAt)
+    : "";
   const selectedPlayer = players.find((player) => player.id === state.facilitatorSelectedPlayerId) ?? players[0];
+  const showInjectDiscussionModal = Boolean(
+    currentInject &&
+    room?.phase === "gameplay" &&
+    currentInject.round !== state.facilitatorInjectModalDismissedRound
+  );
   const showFinalModal = Boolean(
     room &&
     room.phase === "hotwash" &&
@@ -522,6 +665,44 @@ function renderFacilitator() {
     !state.facilitatorFinalModalDismissed
   );
   const showPlayerModal = Boolean(selectedPlayer && state.facilitatorModalMode);
+  const playersPanel = `
+    <div class="panel">
+      <div class="eyebrow">Players</div>
+      <h3>Readiness Board</h3>
+      <div class="players">
+        ${players.length ? players.map((player) => `
+          <div class="player-row">
+            <div>
+              <button class="player-name-button ${player.id === selectedPlayer?.id && state.facilitatorModalMode === "deck" ? "active" : ""}" data-player-id="${player.id}" data-player-view="deck">${escapeHtml(player.name)}</button>
+              <div class="muted">${player.selectedCards.length} cards selected • ${player.budgetRemaining.toLocaleString()} budget left</div>
+            </div>
+            <div class="stack">
+              <button class="secondary remove-player-button" data-remove-player-id="${player.id}">Remove</button>
+              <span class="badge ${player.connected ? "good" : "warn"}">${player.connected ? "Connected" : "Offline"}</span>
+              <button class="badge badge-toggle ${player.locked ? "good" : "warn"}" data-toggle-player-lock="${player.id}" type="button">${player.locked ? "Locked" : "Building"}</button>
+            </div>
+          </div>
+        `).join("") : `<div class="muted">No players yet. Share the join URL and room code.</div>`}
+      </div>
+    </div>
+  `;
+  const leaderboardPanel = `
+    <div class="panel">
+      <div class="eyebrow">Leaderboard</div>
+      <h3>Team Results</h3>
+      <div class="leaderboard">
+        ${players.map((player) => `
+          <div class="leaderboard-item">
+            <button class="player-name-button ${player.id === selectedPlayer?.id && state.facilitatorModalMode === "inject" ? "active" : ""}" data-player-id="${player.id}" data-player-view="inject">${escapeHtml(player.name)}</button>
+            <div><span class="muted">Score</span><div>${player.score}</div></div>
+            <div><span class="muted">Last</span><div>${player.lastDelta >= 0 ? "+" : ""}${player.lastDelta}</div></div>
+            <div><span class="muted">Hits</span><div>${player.criticalHits}</div></div>
+            <div><span class="muted">Cards</span><div>${player.selectedCards.length}</div></div>
+          </div>
+        `).join("") || `<div class="muted">Players will appear here after they join the room.</div>`}
+      </div>
+    </div>
+  `;
 
   appRoot.innerHTML = `
     <div class="app-shell">
@@ -533,7 +714,7 @@ function renderFacilitator() {
             <p class="muted">Create the room, let everyone build decks, then move the group into live injects and hotwash.</p>
           </div>
           <div class="controls">
-            <a href="/admin/injects"><button class="secondary" type="button">Admin Injects</button></a>
+            ${state.adminConfigured ? `<a href="/admin/injects"><button class="secondary" type="button">Admin Injects</button></a>` : ""}
             <button id="create-room">Create Room</button>
           </div>
         </div>
@@ -542,15 +723,13 @@ function renderFacilitator() {
       ${room ? `
         <div class="panel room-panel">
           <div class="room-panel-header">
-            <div>
-              <div class="eyebrow">Room</div>
-              <h2>Code: ${room.roomCode}</h2>
-            </div>
+            ${renderRoomJoinSummary()}
             <div class="controls">
-              <a href="/admin/injects"><button class="secondary" type="button">Admin Injects</button></a>
               <button class="secondary" id="reset-room">Reset Room</button>
+              ${room.phase === "deckbuild" ? `<button class="secondary" id="start-deckbuild-timer" ${room.deckbuildAutoLockAt ? "disabled" : ""}>Start 5 Minute Timer</button>` : ""}
               ${room.phase === "deckbuild" ? `<button id="begin-gameplay" ${canBegin ? "" : "disabled"}>Begin Incident Phase</button>` : ""}
-              ${room.phase === "gameplay" ? `<button id="draw-inject">Draw Inject</button>` : ""}
+              ${room.phase === "gameplay" && !showFinishGame ? `<button id="draw-inject" ${room.round >= room.maxRounds ? "disabled" : ""}>Draw Inject</button>` : ""}
+              ${showFinishGame ? `<button class="success" id="finish-game">Finish Game</button>` : ""}
             </div>
           </div>
           <div class="stat-grid">
@@ -559,45 +738,11 @@ function renderFacilitator() {
             <div class="stat"><span class="muted">Locked</span><span class="value">${ready}/${players.length}</span></div>
             <div class="stat"><span class="muted">Round</span><span class="value">${room.round}/${room.maxRounds}</span></div>
           </div>
-          <div class="spacer"></div>
-          ${roomJoinLinks()}
+          ${deckbuildCountdown ? `<div class="spacer"></div><div class="badge warn">Auto-lock and incident start in ${deckbuildCountdown}</div>` : ""}
         </div>
         <div class="layout">
           <div>
-            <div class="panel">
-              <div class="eyebrow">Players</div>
-              <h3>Readiness Board</h3>
-              <div class="players">
-                ${players.length ? players.map((player) => `
-                  <div class="player-row">
-                    <div>
-                      <button class="player-name-button ${player.id === selectedPlayer?.id && state.facilitatorModalMode === "deck" ? "active" : ""}" data-player-id="${player.id}" data-player-view="deck">${escapeHtml(player.name)}</button>
-                      <div class="muted">${player.selectedCards.length} cards selected • ${player.budgetRemaining.toLocaleString()} budget left</div>
-                    </div>
-                    <div class="stack">
-                      <button class="secondary remove-player-button" data-remove-player-id="${player.id}">Remove</button>
-                      <span class="badge ${player.connected ? "good" : "warn"}">${player.connected ? "Connected" : "Offline"}</span>
-                      <span class="badge ${player.locked ? "good" : "warn"}">${player.locked ? "Locked" : "Building"}</span>
-                    </div>
-                  </div>
-                `).join("") : `<div class="muted">No players yet. Share the join URL and room code.</div>`}
-              </div>
-            </div>
-            <div class="panel">
-              <div class="eyebrow">Leaderboard</div>
-              <h3>Team Results</h3>
-              <div class="leaderboard">
-                ${players.map((player) => `
-                  <div class="leaderboard-item">
-                    <button class="player-name-button ${player.id === selectedPlayer?.id && state.facilitatorModalMode === "inject" ? "active" : ""}" data-player-id="${player.id}" data-player-view="inject">${escapeHtml(player.name)}</button>
-                    <div><span class="muted">Score</span><div>${player.score}</div></div>
-                    <div><span class="muted">Last</span><div>${player.lastDelta >= 0 ? "+" : ""}${player.lastDelta}</div></div>
-                    <div><span class="muted">Hits</span><div>${player.criticalHits}</div></div>
-                    <div><span class="muted">Cards</span><div>${player.selectedCards.length}</div></div>
-                  </div>
-                `).join("") || `<div class="muted">Players will appear here after they join the room.</div>`}
-              </div>
-            </div>
+            ${room.phase === "deckbuild" ? `${playersPanel}${leaderboardPanel}` : `${leaderboardPanel}${playersPanel}`}
           </div>
           <div>
             <div class="panel">
@@ -627,6 +772,16 @@ function renderFacilitator() {
                 `}
             <div class="controls">
               <button id="close-player-modal">Close</button>
+            </div>
+          </div>
+        </div>
+      ` : ""}
+      ${showInjectDiscussionModal && currentInject ? `
+        <div class="modal-backdrop">
+          <div class="modal-card">
+            ${renderInjectDiscussionModal(currentInject)}
+            <div class="controls">
+              <button id="close-inject-discussion-modal">Close</button>
             </div>
           </div>
         </div>
@@ -662,8 +817,10 @@ function renderFacilitator() {
   document.getElementById("create-room")?.addEventListener("click", () =>
     send({ type: "create-room", sessionKey: getOrCreateFacilitatorSessionKey() })
   );
+  document.getElementById("start-deckbuild-timer")?.addEventListener("click", () => send({ type: "start-deckbuild-timer", roomCode: state.roomCode, durationSeconds: 300 }));
   document.getElementById("begin-gameplay")?.addEventListener("click", () => send({ type: "begin-gameplay", roomCode: state.roomCode }));
   document.getElementById("draw-inject")?.addEventListener("click", () => send({ type: "draw-inject", roomCode: state.roomCode }));
+  document.getElementById("finish-game")?.addEventListener("click", () => send({ type: "finish-game", roomCode: state.roomCode }));
   document.getElementById("reset-room")?.addEventListener("click", () => send({ type: "reset-room", roomCode: state.roomCode }));
   document.querySelectorAll("[data-player-id]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -690,9 +847,21 @@ function renderFacilitator() {
       send({ type: "remove-player", roomCode: state.roomCode, playerId });
     });
   });
+  document.querySelectorAll("[data-toggle-player-lock]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const playerId = button.getAttribute("data-toggle-player-lock") ?? "";
+      if (!playerId) return;
+      send({ type: "toggle-player-lock", roomCode: state.roomCode, playerId });
+    });
+  });
   document.getElementById("close-player-modal")?.addEventListener("click", () => {
     state.facilitatorSelectedPlayerId = "";
     state.facilitatorModalMode = "";
+    render();
+  });
+  document.getElementById("close-inject-discussion-modal")?.addEventListener("click", () => {
+    state.facilitatorInjectModalDismissedRound = currentInject?.round ?? 0;
     render();
   });
   document.getElementById("close-final-modal")?.addEventListener("click", () => {
@@ -873,6 +1042,7 @@ function renderLockedDeck(player: PlayerState) {
 function renderPlayerInject(currentInject: CurrentInjectView, playerId: string) {
   const localPlayer = getLocalPlayer();
   const resolution = currentInject.resolutions.find((entry) => entry.playerId === playerId);
+  const reportDraft = getReportDraft(currentInject.round);
   return `
     <h3>Round ${currentInject.round}: ${escapeHtml(currentInject.inject.event)}</h3>
     <p class="muted">${escapeHtml(currentInject.inject.description)}</p>
@@ -899,11 +1069,11 @@ function renderPlayerInject(currentInject: CurrentInjectView, playerId: string) 
       <div class="report-form">
         <div class="eyebrow">Optional Incident Report</div>
         <p class="muted">Submit a short round report for a +5 bonus.</p>
-        <textarea id="report-summary" class="report-textarea" placeholder="What happened for your team, and what would you do next?"></textarea>
+        <textarea id="report-summary" class="report-textarea" placeholder="What happened for your team, and what would you do next?">${escapeHtml(reportDraft.summary)}</textarea>
         <div class="report-checkboxes">
           ${["Law Enforcement", "Management", "Internal Ticketing", "Communications / PR", "Legal / Compliance"].map((label) => `
             <label class="report-check">
-              <input type="checkbox" value="${label}">
+              <input type="checkbox" value="${label}" ${reportDraft.notified.includes(label) ? "checked" : ""}>
               <span>${label}</span>
             </label>
           `).join("")}
@@ -921,6 +1091,7 @@ function renderPlayerInject(currentInject: CurrentInjectView, playerId: string) 
 }
 
 function renderDeckBuilder(player: PlayerState) {
+  const deckbuildCountdown = state.room?.deckbuildAutoLockAt ? formatCountdown(state.room.deckbuildAutoLockAt) : "";
   return `
     <div class="panel">
       <div class="deckbuild-sticky">
@@ -937,6 +1108,7 @@ function renderDeckBuilder(player: PlayerState) {
             : `<button class="success" id="lock-deck">Lock Deck</button>`}
         </div>
       </div>
+      ${deckbuildCountdown ? `<div class="badge warn deckbuild-timer-badge">Auto-lock in ${deckbuildCountdown}</div><div class="spacer"></div>` : ""}
       <div class="spacer"></div>
       <div class="controls-grid">
         ${categoryOrder.map((category) => {
@@ -1044,10 +1216,33 @@ function renderPlayer() {
 
   document.getElementById("lock-deck")?.addEventListener("click", () => send({ type: "lock-deck", roomCode: state.roomCode }));
   document.getElementById("unlock-deck")?.addEventListener("click", () => send({ type: "unlock-deck", roomCode: state.roomCode }));
-  document.getElementById("submit-report")?.addEventListener("click", () => {
+  document.getElementById("report-summary")?.addEventListener("input", () => {
+    const currentRound = room?.currentInject?.round;
+    if (!currentRound) return;
     const summary = (document.getElementById("report-summary") as HTMLTextAreaElement | null)?.value ?? "";
     const notified = [...document.querySelectorAll(".report-check input:checked")]
       .map((input) => (input as HTMLInputElement).value);
+    updateReportDraft(currentRound, { summary, notified });
+  });
+  document.querySelectorAll(".report-check input").forEach((input) => {
+    input.addEventListener("change", () => {
+      const currentRound = room?.currentInject?.round;
+      if (!currentRound) return;
+      const summary = (document.getElementById("report-summary") as HTMLTextAreaElement | null)?.value ?? "";
+      const notified = [...document.querySelectorAll(".report-check input:checked")]
+        .map((entry) => (entry as HTMLInputElement).value);
+      updateReportDraft(currentRound, { summary, notified });
+    });
+  });
+  document.getElementById("submit-report")?.addEventListener("click", () => {
+    const currentRound = room?.currentInject?.round;
+    const draft = currentRound ? getReportDraft(currentRound) : { summary: "", notified: [] };
+    const summaryInput = (document.getElementById("report-summary") as HTMLTextAreaElement | null)?.value ?? "";
+    const summary = draft.summary || summaryInput;
+    const notified = draft.notified.length
+      ? draft.notified
+      : [...document.querySelectorAll(".report-check input:checked")]
+          .map((input) => (input as HTMLInputElement).value);
     send({ type: "submit-report", roomCode: state.roomCode, summary, notified });
   });
 }
@@ -1079,6 +1274,13 @@ async function initialize() {
   }
   render();
 }
+
+window.setInterval(() => {
+  state.currentTime = Date.now();
+  if (state.room?.phase === "deckbuild" && state.room.deckbuildAutoLockAt) {
+    render();
+  }
+}, 1000);
 
 connect();
 maybeAutoRejoinPlayerRoom();

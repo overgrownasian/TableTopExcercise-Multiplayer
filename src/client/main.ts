@@ -14,6 +14,14 @@ import QRCode from "qrcode";
 type RoleView = "landing" | "facilitator" | "player" | "admin";
 type ReportDraft = { summary: string; notified: string[] };
 type JoinLinkEntry = { url: string; qrDataUrl: string };
+type PreservedFieldSnapshot = {
+  key: string;
+  value: string;
+  checked?: boolean;
+  selectionStart?: number | null;
+  selectionEnd?: number | null;
+  hadFocus: boolean;
+};
 
 const app = document.getElementById("app") as HTMLDivElement | null;
 if (!app) throw new Error("App root not found");
@@ -127,6 +135,10 @@ function getPlayerNameStorageKey(roomCode: string) {
   return `irtt-player-name:${roomCode.toUpperCase()}`;
 }
 
+function getPlayerActiveRoomStorageKey() {
+  return "irtt-player-active-room";
+}
+
 function getOrCreatePlayerSessionKey(roomCode: string) {
   const key = getPlayerSessionStorageKey(roomCode);
   let sessionKey = localStorage.getItem(key);
@@ -147,6 +159,79 @@ function getStoredPlayerIdentity(roomCode: string) {
     name: localStorage.getItem(getPlayerNameStorageKey(roomCode)) ?? "",
     sessionKey: localStorage.getItem(getPlayerSessionStorageKey(roomCode)) ?? ""
   };
+}
+
+function getActivePlayerRoomCode() {
+  return sessionStorage.getItem(getPlayerActiveRoomStorageKey()) ?? "";
+}
+
+function setActivePlayerRoomCode(roomCode: string) {
+  sessionStorage.setItem(getPlayerActiveRoomStorageKey(), roomCode.toUpperCase());
+}
+
+function clearActivePlayerRoomCode() {
+  sessionStorage.removeItem(getPlayerActiveRoomStorageKey());
+}
+
+function getFieldPreserveKey(element: Element) {
+  if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement)) {
+    return "";
+  }
+
+  if (element.id) return `id:${element.id}`;
+  if (element instanceof HTMLInputElement && element.closest(".report-check")) return `report-check:${element.value}`;
+  if ("impactTextIndex" in element.dataset && element.dataset.impactTextIndex) return `impact-text:${element.dataset.impactTextIndex}`;
+  if ("impactControlIndex" in element.dataset && element.dataset.impactControlIndex) return `impact-control:${element.dataset.impactControlIndex}`;
+  return "";
+}
+
+function capturePreservedFields(): PreservedFieldSnapshot[] {
+  const activeElement = document.activeElement;
+  return [...appRoot.querySelectorAll("input, textarea, select")]
+    .map((element) => {
+      const key = getFieldPreserveKey(element);
+      if (!key) return null;
+      const field = element as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+      return {
+        key,
+        value: field.value,
+        checked: field instanceof HTMLInputElement ? field.checked : undefined,
+        selectionStart: "selectionStart" in field ? field.selectionStart : null,
+        selectionEnd: "selectionEnd" in field ? field.selectionEnd : null,
+        hadFocus: activeElement === field
+      } satisfies PreservedFieldSnapshot;
+    })
+    .filter((snapshot): snapshot is PreservedFieldSnapshot => Boolean(snapshot));
+}
+
+function restorePreservedFields(snapshots: PreservedFieldSnapshot[]) {
+  if (!snapshots.length) return;
+
+  const fieldMap = new Map<string, Element>();
+  for (const element of appRoot.querySelectorAll("input, textarea, select")) {
+    const key = getFieldPreserveKey(element);
+    if (key) fieldMap.set(key, element);
+  }
+
+  for (const snapshot of snapshots) {
+    const nextField = fieldMap.get(snapshot.key);
+    if (!(nextField instanceof HTMLInputElement || nextField instanceof HTMLTextAreaElement || nextField instanceof HTMLSelectElement)) {
+      continue;
+    }
+
+    if (nextField instanceof HTMLInputElement && typeof snapshot.checked === "boolean") {
+      nextField.checked = snapshot.checked;
+    } else {
+      nextField.value = snapshot.value;
+    }
+
+    if (snapshot.hadFocus) {
+      nextField.focus();
+      if ("setSelectionRange" in nextField && typeof snapshot.selectionStart === "number" && typeof snapshot.selectionEnd === "number") {
+        nextField.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd);
+      }
+    }
+  }
 }
 
 function getView(): RoleView {
@@ -318,6 +403,7 @@ async function logoutAdmin() {
 
 function maybeAutoRejoinPlayerRoom() {
   if (getView() !== "player" || !state.roomCode || !state.socket || state.room) return;
+  if (getActivePlayerRoomCode() !== state.roomCode) return;
   const stored = getStoredPlayerIdentity(state.roomCode);
   if (!stored.name || !stored.sessionKey) return;
   state.playerName = stored.name;
@@ -357,6 +443,12 @@ function connect() {
         const resolution = message.room.currentInject.resolutions.find((entry) => entry.playerId === state.clientId);
         if (resolution?.reportSubmitted) {
           clearReportDraft(message.room.currentInject.round);
+        }
+      }
+      if (getView() === "player") {
+        const playerExists = message.room.players.some((player) => player.id === state.clientId);
+        if (playerExists) {
+          setActivePlayerRoomCode(message.room.roomCode);
         }
       }
       if (getView() === "facilitator") {
@@ -436,7 +528,7 @@ function renderRoomJoinSummary() {
       <img class="join-qr compact" src="${primaryJoinLink.qrDataUrl}" alt="QR code for ${escapeHtml(primaryJoinLink.url)}">
       <div>
         <div class="eyebrow">Room</div>
-        <h2>Code: ${state.roomCode}</h2>
+        <h2 class="room-code-value">Code: ${state.roomCode}</h2>
         <div class="muted room-join-path">${escapeHtml(joinDisplayUrl)}</div>
       </div>
     </div>
@@ -747,6 +839,7 @@ function renderFacilitator() {
           <div>
             <div class="panel">
               <div class="eyebrow">Current Inject</div>
+              ${currentInject ? `<div class="controls"><button class="secondary" id="open-inject-discussion-modal">Open Briefing</button></div><div class="spacer"></div>` : ""}
               ${currentInject ? renderInject(currentInject) : `<div class="muted">No inject has been drawn yet.</div>`}
             </div>
           </div>
@@ -862,6 +955,10 @@ function renderFacilitator() {
   });
   document.getElementById("close-inject-discussion-modal")?.addEventListener("click", () => {
     state.facilitatorInjectModalDismissedRound = currentInject?.round ?? 0;
+    render();
+  });
+  document.getElementById("open-inject-discussion-modal")?.addEventListener("click", () => {
+    state.facilitatorInjectModalDismissedRound = 0;
     render();
   });
   document.getElementById("close-final-modal")?.addEventListener("click", () => {
@@ -1196,14 +1293,23 @@ function renderPlayer() {
     state.roomCode = roomCode;
     state.playerName = playerName;
     persistPlayerIdentity(roomCode, playerName);
+    setActivePlayerRoomCode(roomCode);
     history.replaceState(null, "", `/player?room=${roomCode}`);
     send({ type: "join-room", roomCode, name: playerName, sessionKey: getOrCreatePlayerSessionKey(roomCode) });
+  });
+
+  document.getElementById("room-code")?.addEventListener("input", (event) => {
+    state.roomCode = (event.target as HTMLInputElement).value.toUpperCase();
+  });
+  document.getElementById("player-name")?.addEventListener("input", (event) => {
+    state.playerName = (event.target as HTMLInputElement).value;
   });
 
   document.getElementById("change-room-link")?.addEventListener("click", () => {
     state.roomCode = "";
     state.room = null;
     state.error = "";
+    clearActivePlayerRoomCode();
     history.replaceState(null, "", "/player");
     render();
   });
@@ -1248,20 +1354,25 @@ function renderPlayer() {
 }
 
 function render() {
+  const preservedFields = capturePreservedFields();
   const view = getView();
   if (view === "landing") {
     renderLanding();
+    restorePreservedFields(preservedFields);
     return;
   }
   if (view === "facilitator") {
     renderFacilitator();
+    restorePreservedFields(preservedFields);
     return;
   }
   if (view === "admin") {
     renderAdmin();
+    restorePreservedFields(preservedFields);
     return;
   }
   renderPlayer();
+  restorePreservedFields(preservedFields);
 }
 
 async function initialize() {
